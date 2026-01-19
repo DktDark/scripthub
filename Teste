@@ -1,0 +1,91 @@
+-- Script para salvar e teleportar para coordenadas no Roblox
+-- Por: Xeno Executor
+
+-- Variáveis globais
+local savedPosition = nil
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+
+-- Função para salvar a posição atual
+local function savePosition()
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        savedPosition = character.HumanoidRootPart.Position
+        game.StarterGui:SetCore("SendNotification", {
+            Title = "Posição Salva!",
+            Text = string.format("X: %.2f, Y: %.2f, Z: %.2f", 
+                savedPosition.X, savedPosition.Y, savedPosition.Z),
+            Duration = 3,
+            Icon = "rbxassetid://6726584170"
+        })
+        print("Posição salva:", savedPosition)
+    else
+        game.StarterGui:SetCore("SendNotification", {
+            Title = "Erro",
+            Text = "Personagem não encontrado!",
+            Duration = 3,
+            Icon = "rbxassetid://6726584115"
+        })
+    end
+end
+
+-- Função para teleportar para a posição salva
+local function teleportToSavedPosition()
+    if savedPosition and character and character:FindFirstChild("HumanoidRootPart") then
+        character.HumanoidRootPart.CFrame = CFrame.new(savedPosition)
+        game.StarterGui:SetCore("SendNotification", {
+            Title = "Teleportado!",
+            Text = string.format("Para: X: %.2f, Y: %.2f, Z: %.2f", 
+                savedPosition.X, savedPosition.Y, savedPosition.Z),
+            Duration = 3,
+            Icon = "rbxassetid://6726584173"
+        })
+        print("Teleportado para:", savedPosition)
+    else
+        if not savedPosition then
+            game.StarterGui:SetCore("SendNotification", {
+                Title = "Erro",
+                Text = "Nenhuma posição salva!",
+                Duration = 3,
+                Icon = "rbxassetid://6726584115"
+            })
+        else
+            game.StarterGui:SetCore("SendNotification", {
+                Title = "Erro",
+                Text = "Personagem não encontrado!",
+                Duration = 3,
+                Icon = "rbxassetid://6726584115"
+            })
+        end
+    end
+end
+
+-- Conexões de teclado
+local UIS = game:GetService("UserInputService")
+
+UIS.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.L then
+        savePosition()
+    elseif input.KeyCode == Enum.KeyCode.V then
+        teleportToSavedPosition()
+    end
+end)
+
+-- Atualizar referência do personagem quando ele mudar
+player.CharacterAdded:Connect(function(newChar)
+    character = newChar
+    task.wait(1) -- Esperar o personagem carregar completamente
+end)
+
+-- Notificação inicial
+game.StarterGui:SetCore("SendNotification", {
+    Title = "Teleport Script Carregado",
+    Text = "K = Salvar Posição | X = Teleportar",
+    Duration = 5,
+    Icon = "rbxassetid://6726584170"
+})
+
+print("Script de Teleport carregado com sucesso!")
+print("Pressione K para salvar sua posição atual")
+print("Pressione X para teleportar para a posição salva")
