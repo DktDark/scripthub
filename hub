@@ -55,84 +55,79 @@ local TELEPORT_DELAY = 0.35
 -- LISTA DE MOBS (REAL = COREANO)
 local MobStates = {
     ["크람푸스"] = {
-        enabled = False,
+        enabled = false,
         label = "Krampus"
     },
 
 	["파라다이스 수장"] = {
-        enabled = False,
+        enabled = false,
         label = "Boss Sakura"
     },
 
 	["더 할루시네이션"] = {
-        enabled = False,
+        enabled = false,
         label = "Alucinação"
     },
 
 	["다크 기사단장"] = {
-        enabled = False,
+        enabled = false,
         label = "Cavaleiro das Trevas"
     },
 
 	["용암 골렘"] = {
-        enabled = False,
+        enabled = false,
         label = "Golem de Lava"
     },
 	
 	["예티"] = {
-	    enabled = False,
+	    enabled = false,
 	    label = "Yeti"
 	},
 	
 	["나락화 수호자"] = {
-	    enabled = False,
+	    enabled = false,
 	    label = "Narak"
 	},
 	
 	["타이탄 아머로드"] = {
-	    enabled = False,
+	    enabled = false,
 	    label = "Titã"
 	},
 
-	["다크 기사단장"] = {
-	    enabled = False,
-	    label = "Bola de Fogo"
-	},
-
 	["미라"] = {
-	    enabled = False,
+	    enabled = false,
 	    label = "Múmia"
 	},
 
 	["포자링"] = {
-	    enabled = False,
+	    enabled = false,
 	    label = "Cogumelo"
 	},
 
-	[아르카나"] = {
-	    enabled = False,
+	["아르카나"] = {
+	    enabled = false,
 	    label = "Boss de Gelo"
 	},
 
-	[서리 늑대"] = {
-	    enabled = False,
+	["서리 늑대"] = {
+	    enabled = false,
 	    label = "Lacaio de Gelo"
 	},
 
 -- Recursos / Minérios
 
 	["용력석"] = {
-	    enabled = False,
+	    enabled = false,
 	    label = "Mitico Ore"
 	},
 	
 	["마나 광물"] = {
-	    enabled = False,
+	    enabled = false,
 	    label = "Mana Ore"
 	},
 	
 	["순수한 마나 광석"] = {
-	    enabled = False,
+	    enabled = false,
 	    label = "Mana Pura"
 	},
 }
@@ -143,7 +138,7 @@ local MobStates = {
 
 local function clearLock(hrp)
     for _, v in ipairs(hrp:GetChildren()) do
-        if v.Name:find("TP_") then
+        if v.Name:find("TP") then
             v:Destroy()
         end
     end
