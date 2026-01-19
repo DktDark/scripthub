@@ -67,6 +67,16 @@ local MobStates = {
         label = "Boss Sakura"
     },
 
+	["아르카나"] = {
+        enabled = false,
+        label = "Boss Gelo"
+    },
+
+	["서리 늑대"] = {
+        enabled = false,
+        label = "Lacaio de gelo"
+    },
+	
 	["더 할루시네이션"] = {
         enabled = false,
         label = "Alucinação"
