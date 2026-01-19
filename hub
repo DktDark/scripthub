@@ -73,6 +73,11 @@ local MobStates = {
         enabled = true,
         label = "Cavaleiro das Trevas"
     },
+
+	["용암 골렘"] = {
+        enabled = true,
+        label = "Golem de Lava"
+    },
 }
 
 --==================================================
