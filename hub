@@ -5,12 +5,12 @@
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
 local Window = Rayfield:CreateWindow({
-    Name = "Vitor Hub",
-    LoadingTitle = "Vitor Hub",
+    Name = "Dark Hub",
+    LoadingTitle = "Dark Hub",
     LoadingSubtitle = "Auto TP & Skills",
     ConfigurationSaving = {
         Enabled = true,
-        FolderName = "VitorHub",
+        FolderName = "DarkHub",
         FileName = "Config"
     }
 })
