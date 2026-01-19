@@ -302,7 +302,6 @@ local function stopFly()
     if flyBG then flyBG:Destroy() end
 end
 
-
 --==================================================
 -- AUTO SKILL (MANTIDO)
 --==================================================
@@ -391,7 +390,6 @@ UserInputService.InputBegan:Connect(function(input, gpe)
     end
 end)
 
-
 --==================================================
 -- UI RAYFIELD
 --==================================================
@@ -448,8 +446,11 @@ player.CharacterAdded:Connect(function()
 end)
 
 --==================================================
--- SETTINGS
+-- SETTINGS (ORGANIZADO)
 --==================================================
+
+-- Seção Fly
+TabSettings:CreateSection("Fly Settings")
 
 TabSettings:CreateToggle({
     Name = "Fly",
@@ -478,15 +479,23 @@ TabSettings:CreateKeybind({
     end
 })
 
+TabSettings:CreateSection("Save Teleport Settings")
+
 TabSettings:CreateButton({
     Name = "Salvar Posição",
     Callback = function()
         SavedPos = getHRP(getCharacter()).Position
+        Rayfield:Notify({
+            Title = "Posição Salva",
+            Content = "Posição atual foi salva com sucesso!",
+            Duration = 3,
+            Image = 4483362458
+        })
     end
 })
 
 TabSettings:CreateButton({
-    Name = "Teleportar Posição",
+    Name = "Teleportar para Posição",
     Callback = teleportSavedPos
 })
 
@@ -499,7 +508,7 @@ TabSettings:CreateToggle({
 })
 
 TabSettings:CreateSlider({
-    Name = "Tempo Auto TP (seg)",
+    Name = "Tempo Auto TP (segundos)",
     Range = {5, 600},
     Increment = 5,
     CurrentValue = SavedTPDelay,
@@ -516,6 +525,7 @@ TabSettings:CreateKeybind({
     end
 })
 
+TabSettings:CreateSection("Hub")
 
 TabSettings:CreateButton({
     Name = "Fechar Hub",
