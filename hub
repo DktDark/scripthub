@@ -60,69 +60,69 @@ local MobStates = {
     },
 
 	["파라다이스 수장"] = {
-        enabled = true,
+        enabled = False,
         label = "Boss Sakura"
     },
 
 	["더 할루시네이션"] = {
-        enabled = true,
+        enabled = False,
         label = "Alucinação"
     },
 
 	["다크 기사단장"] = {
-        enabled = true,
+        enabled = False,
         label = "Cavaleiro das Trevas"
     },
 
 	["용암 골렘"] = {
-        enabled = true,
+        enabled = False,
         label = "Golem de Lava"
     },
 	
 	["예티"] = {
-	    enabled = true,
+	    enabled = False,
 	    label = "Yeti"
 	},
 	
 	["나락화 수호자"] = {
-	    enabled = true,
+	    enabled = False,
 	    label = "Narak"
 	},
 	
 	["타이탄 아머로드"] = {
-	    enabled = true,
+	    enabled = False,
 	    label = "Titã"
 	},
 
 	["다크 기사단장"] = {
-	    enabled = true,
+	    enabled = False,
 	    label = "Bola de Fogo"
 	},
 
 	["미라"] = {
-	    enabled = true,
+	    enabled = False,
 	    label = "Múmia"
 	},
 
 	["포자링"] = {
-	    enabled = true,
+	    enabled = False,
 	    label = "Cogumelo"
 	},
 
 -- Recursos / Minérios
 
 	["용력석"] = {
-	    enabled = true,
+	    enabled = False,
 	    label = "Mitico Ore"
 	},
 	
 	["마나 광물"] = {
-	    enabled = true,
+	    enabled = False,
 	    label = "Mana Ore"
 	},
 	
 	["순수한 마나 광석"] = {
-	    enabled = true,
+	    enabled = False,
 	    label = "Mana Pura"
 	},
 
