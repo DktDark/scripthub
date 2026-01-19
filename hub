@@ -126,6 +126,17 @@ local MobStates = {
 	    label = "Mana Pura"
 	},
 
+	[아르카나"] = {
+	    enabled = False,
+	    label = "Boss de Gelo"
+	},
+
+	[서리 늑대"] = {
+	    enabled = False,
+	    label = "Lacaio de Gelo"
+	},
+
+
 }
 
 --==================================================
