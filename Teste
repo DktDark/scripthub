@@ -25,6 +25,8 @@ local TabSettings = Window:CreateTab("Settings", 4483362458)
 
 local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 
@@ -347,6 +349,130 @@ TabCombat:CreateToggle({
         end
     end
 })
+
+--==================================================
+-- Fly Script (adicionado na aba Combat)
+-- - Adicionei um slider para ajustar a velocidade do fly em tempo real
+-- - Adicionei um botão para ativar/desativar o fly via UI
+-- - A tecla F também alterna o fly (compatível com o script fornecido)
+--==================================================
+
+local Fly = {
+    enabled = false,
+    speed = 100,
+    bodyVelocity = nil,
+    renderConn = nil,
+    inputConn = nil
+}
+
+-- Slider para ajustar a velocidade do fly (valor inicial 100)
+-- Observação: Rayfield CreateSlider padrão usa esses campos comuns; se sua versão do Rayfield usar outros nomes,
+-- ajuste os campos conforme a API do Rayfield que você tem.
+TabCombat:CreateSlider({
+    Name = "Fly Speed",
+    Min = 1,
+    Max = 1000,
+    CurrentValue = Fly.speed,
+    Increment = 1,
+    Suffix = "speed",
+    Callback = function(v)
+        Fly.speed = v
+    end
+})
+
+local function startFly()
+    if Fly.enabled then return end
+    Fly.enabled = true
+
+    local character = getCharacter()
+    local hrp = character:WaitForChild("HumanoidRootPart")
+
+    -- criar BodyVelocity
+    Fly.bodyVelocity = Instance.new("BodyVelocity")
+    Fly.bodyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+    Fly.bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    Fly.bodyVelocity.Parent = hrp
+
+    -- RenderStepped para atualizar a direção com a câmera e as teclas WASD
+    Fly.renderConn = RunService.RenderStepped:Connect(function()
+        if not Fly.enabled or not Fly.bodyVelocity then return end
+
+        local moveDirection = Vector3.new(0, 0, 0)
+        local cam = workspace.CurrentCamera
+        if not cam then return end
+
+        if UIS:IsKeyDown(Enum.KeyCode.W) then
+            moveDirection = moveDirection + (cam.CFrame.LookVector)
+        end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then
+            moveDirection = moveDirection - (cam.CFrame.LookVector)
+        end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then
+            moveDirection = moveDirection - (cam.CFrame.RightVector)
+        end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then
+            moveDirection = moveDirection + (cam.CFrame.RightVector)
+        end
+
+        -- Normalize direction to avoid faster diagonal movement
+        if moveDirection.Magnitude > 0 then
+            moveDirection = moveDirection.Unit
+        end
+
+        Fly.bodyVelocity.Velocity = moveDirection * Fly.speed
+    end)
+end
+
+local function stopFly()
+    Fly.enabled = false
+    if Fly.renderConn then
+        Fly.renderConn:Disconnect()
+        Fly.renderConn = nil
+    end
+    if Fly.bodyVelocity then
+        Fly.bodyVelocity:Destroy()
+        Fly.bodyVelocity = nil
+    end
+end
+
+-- Botão na UI para alternar fly
+TabCombat:CreateButton({
+    Name = "Toggle Fly (F)",
+    Callback = function()
+        if Fly.enabled then
+            stopFly()
+        else
+            startFly()
+        end
+    end
+})
+
+-- Bind / Tecla F para alternar o fly (InputBegan)
+-- Guardamos a conexão para poder desconectar se necessário (ex: reload)
+Fly.inputConn = UIS.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Enum.KeyCode.F then
+        if Fly.enabled then
+            stopFly()
+        else
+            startFly()
+        end
+    end
+end)
+
+-- Garantir cleanup ao trocar/respawn do personagem
+player.CharacterAdded:Connect(function(newChar)
+    task.wait(0.4)
+    -- remover bodyvelocity caso esteja voando
+    stopFly()
+    -- manter o resto do comportamento original
+    currentTarget = nil
+    if enabled then startLoop() end
+    if AutoSkill then
+        autoAttack()
+        autoSkills()
+    end
+end)
 
 --==================================================
 -- Adicionado: Botão Teleport (insere o script fornecido pelo usuário)
