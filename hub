@@ -78,6 +78,54 @@ local MobStates = {
         enabled = true,
         label = "Golem de Lava"
     },
+	
+	["예티"] = {
+	    enabled = true,
+	    label = "Yeti"
+	},
+	
+	["나락화 수호자"] = {
+	    enabled = true,
+	    label = "Narak"
+	},
+	
+	["타이탄 아머로드"] = {
+	    enabled = true,
+	    label = "Titã"
+	},
+
+	["다크 기사단장"] = {
+	    enabled = true,
+	    label = "Bola de Fogo"
+	},
+
+	["미라"] = {
+	    enabled = true,
+	    label = "Múmia"
+	},
+
+	["포자링"] = {
+	    enabled = true,
+	    label = "Cogumelo"
+	},
+
+-- Recursos / Minérios
+
+	["용력석"] = {
+	    enabled = true,
+	    label = "Mitico Ore"
+	},
+	
+	["마나 광물"] = {
+	    enabled = true,
+	    label = "Mana Ore"
+	},
+	
+	["순수한 마나 광석"] = {
+	    enabled = true,
+	    label = "Mana Pura"
+	},
+
 }
 
 --==================================================
