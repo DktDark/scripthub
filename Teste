@@ -1,5 +1,6 @@
 --==================================================
 -- RAYFIELD HUB - AUTO TP ORIGINAL + AUTO SKILL
+-- (Atualizado: Fly funcional + correções)
 --==================================================
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
@@ -57,74 +58,74 @@ local TELEPORT_DELAY = 0.35
 -- LISTA DE MOBS (REAL = COREANO)
 local MobStates = {
     ["크람푸스"] = {
-        enabled = False,
+        enabled = false,
         label = "Krampus"
     },
 
 	["파라다이스 수장"] = {
-        enabled = False,
+        enabled = false,
         label = "Boss Sakura"
     },
 
 	["더 할루시네이션"] = {
-        enabled = False,
+        enabled = false,
         label = "Alucinação"
     },
 
 	["다크 기사단장"] = {
-        enabled = False,
+        enabled = false,
         label = "Cavaleiro das Trevas"
     },
 
 	["용암 골렘"] = {
-        enabled = False,
+        enabled = false,
         label = "Golem de Lava"
     },
 	
 	["예티"] = {
-	    enabled = False,
+	    enabled = false,
 	    label = "Yeti"
 	},
 	
 	["나락화 수호자"] = {
-	    enabled = False,
+	    enabled = false,
 	    label = "Narak"
 	},
 	
 	["타이탄 아머로드"] = {
-	    enabled = False,
+	    enabled = false,
 	    label = "Titã"
 	},
 
 	["다크 기사단장"] = {
-	    enabled = False,
+	    enabled = false,
 	    label = "Bola de Fogo"
 	},
 
 	["미라"] = {
-	    enabled = False,
+	    enabled = false,
 	    label = "Múmia"
 	},
 
 	["포자링"] = {
-	    enabled = False,
+	    enabled = false,
 	    label = "Cogumelo"
 	},
 
 -- Recursos / Minérios
 
 	["용력석"] = {
-	    enabled = False,
+	    enabled = false,
 	    label = "Mitico Ore"
 	},
 	
 	["마나 광물"] = {
-	    enabled = False,
+	    enabled = false,
 	    label = "Mana Ore"
 	},
 	
 	["순수한 마나 광석"] = {
-	    enabled = False,
+	    enabled = false,
 	    label = "Mana Pura"
 	},
 
@@ -352,9 +353,12 @@ TabCombat:CreateToggle({
 
 --==================================================
 -- Fly Script (adicionado na aba Combat)
--- - Adicionei um slider para ajustar a velocidade do fly em tempo real
--- - Adicionei um botão para ativar/desativar o fly via UI
--- - A tecla F também alterna o fly (compatível com o script fornecido)
+-- Correções aplicadas:
+-- * substituí 'False' por 'false' (lua)
+-- * BodyVelocity.MaxForce = math.huge para garantir força suficiente
+-- * Normalize + prevenção de multiplicação diagonal descontrolada
+-- * Disconnect/cleanup corretos no respawn
+-- * Uso de UIS.InputBegan para bind da tecla F
 --==================================================
 
 local Fly = {
@@ -366,12 +370,10 @@ local Fly = {
 }
 
 -- Slider para ajustar a velocidade do fly (valor inicial 100)
--- Observação: Rayfield CreateSlider padrão usa esses campos comuns; se sua versão do Rayfield usar outros nomes,
--- ajuste os campos conforme a API do Rayfield que você tem.
 TabCombat:CreateSlider({
     Name = "Fly Speed",
     Min = 1,
-    Max = 1000,
+    Max = 2000,
     CurrentValue = Fly.speed,
     Increment = 1,
     Suffix = "speed",
@@ -385,15 +387,29 @@ local function startFly()
     Fly.enabled = true
 
     local character = getCharacter()
-    local hrp = character:WaitForChild("HumanoidRootPart")
+    if not character then return end
+    local hrp = character:WaitForChild("HumanoidRootPart", 2)
+    if not hrp then return end
 
-    -- criar BodyVelocity
-    Fly.bodyVelocity = Instance.new("BodyVelocity")
-    Fly.bodyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-    Fly.bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-    Fly.bodyVelocity.Parent = hrp
+    -- criar BodyVelocity (força alta para evitar limitação)
+    if Fly.bodyVelocity then
+        Fly.bodyVelocity:Destroy()
+        Fly.bodyVelocity = nil
+    end
+
+    local bv = Instance.new("BodyVelocity")
+    bv.Name = "Fly_BodyVelocity"
+    bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bv.Velocity = Vector3.new(0, 0, 0)
+    bv.Parent = hrp
+    Fly.bodyVelocity = bv
 
     -- RenderStepped para atualizar a direção com a câmera e as teclas WASD
+    if Fly.renderConn then
+        Fly.renderConn:Disconnect()
+        Fly.renderConn = nil
+    end
+
     Fly.renderConn = RunService.RenderStepped:Connect(function()
         if not Fly.enabled or not Fly.bodyVelocity then return end
 
@@ -414,12 +430,15 @@ local function startFly()
             moveDirection = moveDirection + (cam.CFrame.RightVector)
         end
 
-        -- Normalize direction to avoid faster diagonal movement
+        -- Normalizar para evitar ganho de velocidade na diagonal
         if moveDirection.Magnitude > 0 then
-            moveDirection = moveDirection.Unit
+            moveDirection = moveDirection.Unit * Fly.speed
+        else
+            moveDirection = Vector3.new(0, 0, 0)
         end
 
-        Fly.bodyVelocity.Velocity = moveDirection * Fly.speed
+        -- Aplicar velocidade
+        Fly.bodyVelocity.Velocity = moveDirection
     end)
 end
 
@@ -448,7 +467,12 @@ TabCombat:CreateButton({
 })
 
 -- Bind / Tecla F para alternar o fly (InputBegan)
--- Guardamos a conexão para poder desconectar se necessário (ex: reload)
+-- Mantemos gameProcessed check para evitar interferir com typing/GUI
+if Fly.inputConn then
+    Fly.inputConn:Disconnect()
+    Fly.inputConn = nil
+end
+
 Fly.inputConn = UIS.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Enum.KeyCode.F then
@@ -544,9 +568,9 @@ TabSettings:CreateButton({
             end
 
             -- Conexões de teclado
-            local UIS = game:GetService("UserInputService")
+            local UIS_local = game:GetService("UserInputService")
 
-            UIS.InputBegan:Connect(function(input, gameProcessed)
+            UIS_local.InputBegan:Connect(function(input, gameProcessed)
                 if gameProcessed then return end
                 
                 if input.KeyCode == Enum.KeyCode.L then
@@ -565,7 +589,7 @@ TabSettings:CreateButton({
             -- Notificação inicial
             game.StarterGui:SetCore("SendNotification", {
                 Title = "Teleport Script Carregado",
-                Text = "K = Salvar Posição | X = Teleportar",
+                Text = "L = Salvar Posição | V = Teleportar",
                 Duration = 5,
                 Icon = "rbxassetid://6726584170"
             })
@@ -602,4 +626,4 @@ TabSettings:CreateButton({
     end
 })
 
-print("✅ Hub carregado com TP original preservado")
+print("✅ Hub carregado com TP original preservado (Fly corrigido)")
