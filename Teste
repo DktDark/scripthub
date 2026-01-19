@@ -1,6 +1,5 @@
 --==================================================
 -- RAYFIELD HUB - AUTO TP ORIGINAL + AUTO SKILL
--- (Atualizado: Fly funcional + correções)
 --==================================================
 
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
@@ -26,7 +25,7 @@ local TabSettings = Window:CreateTab("Settings", 4483362458)
 
 local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
-local UIS = game:GetService("UserInputService")
+local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
@@ -67,16 +66,6 @@ local MobStates = {
         label = "Boss Sakura"
     },
 
-	["아르카나"] = {
-        enabled = false,
-        label = "Boss Gelo"
-    },
-
-	["서리 늑대"] = {
-        enabled = false,
-        label = "Lacaio de gelo"
-    },
-	
 	["더 할루시네이션"] = {
         enabled = false,
         label = "Alucinação"
@@ -107,11 +96,6 @@ local MobStates = {
 	    label = "Titã"
 	},
 
-	["다크 기사단장"] = {
-	    enabled = false,
-	    label = "Bola de Fogo"
-	},
-
 	["미라"] = {
 	    enabled = false,
 	    label = "Múmia"
@@ -120,6 +104,16 @@ local MobStates = {
 	["포자링"] = {
 	    enabled = false,
 	    label = "Cogumelo"
+	},
+
+	["아르카나"] = {
+	    enabled = false,
+	    label = "Boss de Gelo"
+	},
+
+	["서리 늑대"] = {
+	    enabled = false,
+	    label = "Lacaio de Gelo"
 	},
 
 -- Recursos / Minérios
@@ -138,7 +132,6 @@ local MobStates = {
 	    enabled = false,
 	    label = "Mana Pura"
 	},
-
 }
 
 --==================================================
@@ -147,7 +140,7 @@ local MobStates = {
 
 local function clearLock(hrp)
     for _, v in ipairs(hrp:GetChildren()) do
-        if v.Name:find("TP_") then
+        if v.Name:find("TP") then
             v:Destroy()
         end
     end
@@ -266,6 +259,51 @@ local function startLoop()
 end
 
 --==================================================
+-- FLY (INDEPENDENTE)
+--==================================================
+
+local FlyEnabled = false
+local FlySpeed = 60
+local FlyBind = Enum.KeyCode.F
+
+local flyBV, flyBG, flyConn
+
+local function startFly()
+    local hrp = getHRP(getCharacter())
+    if not hrp then return end
+
+    flyBV = Instance.new("BodyVelocity", hrp)
+    flyBV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+
+    flyBG = Instance.new("BodyGyro", hrp)
+    flyBG.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+
+    flyConn = RunService.RenderStepped:Connect(function()
+        if not FlyEnabled then return end
+
+        local cam = workspace.CurrentCamera
+        local dir = Vector3.zero
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += cam.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= cam.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= cam.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += cam.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.new(0,1,0) end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= Vector3.new(0,1,0) end
+
+        flyBV.Velocity = dir.Magnitude > 0 and dir.Unit * FlySpeed or Vector3.zero
+        flyBG.CFrame = cam.CFrame
+    end)
+end
+
+local function stopFly()
+    if flyConn then flyConn:Disconnect() end
+    if flyBV then flyBV:Destroy() end
+    if flyBG then flyBG:Destroy() end
+end
+
+
+--==================================================
 -- AUTO SKILL (MANTIDO)
 --==================================================
 
@@ -321,6 +359,40 @@ local function autoSkills()
 end
 
 --==================================================
+-- SAVE TELEPORT (INDEPENDENTE)
+--==================================================
+
+local SavedPos = nil
+local AutoSavedTP = false
+local SavedTPDelay = 60
+local SavedTPBind = Enum.KeyCode.G
+
+local function teleportSavedPos()
+    if not SavedPos then return end
+    disableLock()
+    getHRP(getCharacter()).CFrame = CFrame.new(SavedPos + Vector3.new(0,3,0))
+end
+
+task.spawn(function()
+    while true do
+        if AutoSavedTP and SavedPos then
+            task.wait(SavedTPDelay)
+            teleportSavedPos()
+        else
+            task.wait(0.3)
+        end
+    end
+end)
+
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == SavedTPBind then
+        teleportSavedPos()
+    end
+end)
+
+
+--==================================================
 -- UI RAYFIELD
 --==================================================
 
@@ -362,256 +434,6 @@ TabCombat:CreateToggle({
 })
 
 --==================================================
--- Fly Script (adicionado na aba Combat)
--- Correções aplicadas:
--- * substituí 'False' por 'false' (lua)
--- * BodyVelocity.MaxForce = math.huge para garantir força suficiente
--- * Normalize + prevenção de multiplicação diagonal descontrolada
--- * Disconnect/cleanup corretos no respawn
--- * Uso de UIS.InputBegan para bind da tecla F
---==================================================
-
-local Fly = {
-    enabled = false,
-    speed = 100,
-    bodyVelocity = nil,
-    renderConn = nil,
-    inputConn = nil
-}
-
--- Slider para ajustar a velocidade do fly (valor inicial 100)
-TabCombat:CreateSlider({
-    Name = "Fly Speed",
-    Min = 1,
-    Max = 2000,
-    CurrentValue = Fly.speed,
-    Increment = 1,
-    Suffix = "speed",
-    Callback = function(v)
-        Fly.speed = v
-    end
-})
-
-local function startFly()
-    if Fly.enabled then return end
-    Fly.enabled = true
-
-    local character = getCharacter()
-    if not character then return end
-    local hrp = character:WaitForChild("HumanoidRootPart", 2)
-    if not hrp then return end
-
-    -- criar BodyVelocity (força alta para evitar limitação)
-    if Fly.bodyVelocity then
-        Fly.bodyVelocity:Destroy()
-        Fly.bodyVelocity = nil
-    end
-
-    local bv = Instance.new("BodyVelocity")
-    bv.Name = "Fly_BodyVelocity"
-    bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-    bv.Velocity = Vector3.new(0, 0, 0)
-    bv.Parent = hrp
-    Fly.bodyVelocity = bv
-
-    -- RenderStepped para atualizar a direção com a câmera e as teclas WASD
-    if Fly.renderConn then
-        Fly.renderConn:Disconnect()
-        Fly.renderConn = nil
-    end
-
-    Fly.renderConn = RunService.RenderStepped:Connect(function()
-        if not Fly.enabled or not Fly.bodyVelocity then return end
-
-        local moveDirection = Vector3.new(0, 0, 0)
-        local cam = workspace.CurrentCamera
-        if not cam then return end
-
-        if UIS:IsKeyDown(Enum.KeyCode.W) then
-            moveDirection = moveDirection + (cam.CFrame.LookVector)
-        end
-        if UIS:IsKeyDown(Enum.KeyCode.S) then
-            moveDirection = moveDirection - (cam.CFrame.LookVector)
-        end
-        if UIS:IsKeyDown(Enum.KeyCode.A) then
-            moveDirection = moveDirection - (cam.CFrame.RightVector)
-        end
-        if UIS:IsKeyDown(Enum.KeyCode.D) then
-            moveDirection = moveDirection + (cam.CFrame.RightVector)
-        end
-
-        -- Normalizar para evitar ganho de velocidade na diagonal
-        if moveDirection.Magnitude > 0 then
-            moveDirection = moveDirection.Unit * Fly.speed
-        else
-            moveDirection = Vector3.new(0, 0, 0)
-        end
-
-        -- Aplicar velocidade
-        Fly.bodyVelocity.Velocity = moveDirection
-    end)
-end
-
-local function stopFly()
-    Fly.enabled = false
-    if Fly.renderConn then
-        Fly.renderConn:Disconnect()
-        Fly.renderConn = nil
-    end
-    if Fly.bodyVelocity then
-        Fly.bodyVelocity:Destroy()
-        Fly.bodyVelocity = nil
-    end
-end
-
--- Botão na UI para alternar fly
-TabCombat:CreateButton({
-    Name = "Toggle Fly (F)",
-    Callback = function()
-        if Fly.enabled then
-            stopFly()
-        else
-            startFly()
-        end
-    end
-})
-
--- Bind / Tecla F para alternar o fly (InputBegan)
--- Mantemos gameProcessed check para evitar interferir com typing/GUI
-if Fly.inputConn then
-    Fly.inputConn:Disconnect()
-    Fly.inputConn = nil
-end
-
-Fly.inputConn = UIS.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Enum.KeyCode.F then
-        if Fly.enabled then
-            stopFly()
-        else
-            startFly()
-        end
-    end
-end)
-
--- Garantir cleanup ao trocar/respawn do personagem
-player.CharacterAdded:Connect(function(newChar)
-    task.wait(0.4)
-    -- remover bodyvelocity caso esteja voando
-    stopFly()
-    -- manter o resto do comportamento original
-    currentTarget = nil
-    if enabled then startLoop() end
-    if AutoSkill then
-        autoAttack()
-        autoSkills()
-    end
-end)
-
---==================================================
--- Adicionado: Botão Teleport (insere o script fornecido pelo usuário)
---==================================================
-
-TabSettings:CreateButton({
-    Name = "Teleport",
-    Callback = function()
-        task.spawn(function()
-            -- Script para salvar e teleportar para coordenadas no Roblox
-            -- Por: Xeno Executor
-
-            -- Variáveis globais
-            local savedPosition = nil
-            local player = game.Players.LocalPlayer
-            local character = player.Character or player.CharacterAdded:Wait()
-
-            -- Função para salvar a posição atual
-            local function savePosition()
-                if character and character:FindFirstChild("HumanoidRootPart") then
-                    savedPosition = character.HumanoidRootPart.Position
-                    game.StarterGui:SetCore("SendNotification", {
-                        Title = "Posição Salva!",
-                        Text = string.format("X: %.2f, Y: %.2f, Z: %.2f", 
-                            savedPosition.X, savedPosition.Y, savedPosition.Z),
-                        Duration = 3,
-                        Icon = "rbxassetid://6726584170"
-                    })
-                    print("Posição salva:", savedPosition)
-                else
-                    game.StarterGui:SetCore("SendNotification", {
-                        Title = "Erro",
-                        Text = "Personagem não encontrado!",
-                        Duration = 3,
-                        Icon = "rbxassetid://6726584115"
-                    })
-                end
-            end
-
-            -- Função para teleportar para a posição salva
-            local function teleportToSavedPosition()
-                if savedPosition and character and character:FindFirstChild("HumanoidRootPart") then
-                    character.HumanoidRootPart.CFrame = CFrame.new(savedPosition)
-                    game.StarterGui:SetCore("SendNotification", {
-                        Title = "Teleportado!",
-                        Text = string.format("Para: X: %.2f, Y: %.2f, Z: %.2f", 
-                            savedPosition.X, savedPosition.Y, savedPosition.Z),
-                        Duration = 3,
-                        Icon = "rbxassetid://6726584173"
-                    })
-                    print("Teleportado para:", savedPosition)
-                else
-                    if not savedPosition then
-                        game.StarterGui:SetCore("SendNotification", {
-                            Title = "Erro",
-                            Text = "Nenhuma posição salva!",
-                            Duration = 3,
-                            Icon = "rbxassetid://6726584115"
-                        })
-                    else
-                        game.StarterGui:SetCore("SendNotification", {
-                            Title = "Erro",
-                            Text = "Personagem não encontrado!",
-                            Duration = 3,
-                            Icon = "rbxassetid://6726584115"
-                        })
-                    end
-                end
-            end
-
-            -- Conexões de teclado
-            local UIS_local = game:GetService("UserInputService")
-
-            UIS_local.InputBegan:Connect(function(input, gameProcessed)
-                if gameProcessed then return end
-                
-                if input.KeyCode == Enum.KeyCode.L then
-                    savePosition()
-                elseif input.KeyCode == Enum.KeyCode.V then
-                    teleportToSavedPosition()
-                end
-            end)
-
-            -- Atualizar referência do personagem quando ele mudar
-            player.CharacterAdded:Connect(function(newChar)
-                character = newChar
-                task.wait(1) -- Esperar o personagem carregar completamente
-            end)
-
-            -- Notificação inicial
-            game.StarterGui:SetCore("SendNotification", {
-                Title = "Teleport Script Carregado",
-                Text = "L = Salvar Posição | V = Teleportar",
-                Duration = 5,
-                Icon = "rbxassetid://6726584170"
-            })
-
-            print("Script de Teleport carregado com sucesso!")
-            print("Pressione L para salvar sua posição atual")
-            print("Pressione V para teleportar para a posição salva")
-        end)
-    end
-})
-
---==================================================
 -- RESPAWN SAFE
 --==================================================
 
@@ -629,6 +451,72 @@ end)
 -- SETTINGS
 --==================================================
 
+TabSettings:CreateToggle({
+    Name = "Fly",
+    CurrentValue = false,
+    Callback = function(v)
+        FlyEnabled = v
+        if v then startFly() else stopFly() end
+    end
+})
+
+TabSettings:CreateSlider({
+    Name = "Fly Speed",
+    Range = {10, 200},
+    Increment = 5,
+    CurrentValue = FlySpeed,
+    Callback = function(v)
+        FlySpeed = v
+    end
+})
+
+TabSettings:CreateKeybind({
+    Name = "Fly Bind",
+    CurrentKeybind = "F",
+    Callback = function(key)
+        FlyBind = Enum.KeyCode[key]
+    end
+})
+
+TabSettings:CreateButton({
+    Name = "Salvar Posição",
+    Callback = function()
+        SavedPos = getHRP(getCharacter()).Position
+    end
+})
+
+TabSettings:CreateButton({
+    Name = "Teleportar Posição",
+    Callback = teleportSavedPos
+})
+
+TabSettings:CreateToggle({
+    Name = "Auto TP Salvo",
+    CurrentValue = false,
+    Callback = function(v)
+        AutoSavedTP = v
+    end
+})
+
+TabSettings:CreateSlider({
+    Name = "Tempo Auto TP (seg)",
+    Range = {5, 600},
+    Increment = 5,
+    CurrentValue = SavedTPDelay,
+    Callback = function(v)
+        SavedTPDelay = v
+    end
+})
+
+TabSettings:CreateKeybind({
+    Name = "Bind TP Salvo",
+    CurrentKeybind = "G",
+    Callback = function(key)
+        SavedTPBind = Enum.KeyCode[key]
+    end
+})
+
+
 TabSettings:CreateButton({
     Name = "Fechar Hub",
     Callback = function()
@@ -636,4 +524,4 @@ TabSettings:CreateButton({
     end
 })
 
-print("✅ Hub carregado com TP original preservado (Fly corrigido)")
+print("✅ Hub carregado com TP original preservado")
