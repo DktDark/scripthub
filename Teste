@@ -47,7 +47,7 @@ end
 -- CONFIG AUTO TP (ORIGINAL)
 --==================================================
 
-local enabled = false
+local enabled = true
 local currentTarget = nil
 local loopRunning = false
 
@@ -77,7 +77,7 @@ local MobStates = {
     },
 
 	["용암 골렘"] = {
-        enabled = false,
+        enabled = true,
         label = "Golem de Lava"
     },
 	
@@ -306,7 +306,7 @@ end
 -- AUTO SKILL (MANTIDO)
 --==================================================
 
-local AutoSkill = false
+local AutoSkill = true
 local ATTACK_DELAY = 0.15
 local attacking = false
 local usingSkills = false
@@ -396,7 +396,7 @@ end)
 
 TabFarm:CreateToggle({
     Name = "Auto Teleport",
-    CurrentValue = false,
+    CurrentValue = true,
     Callback = function(v)
         enabled = v
         if v then
@@ -421,7 +421,7 @@ end
 
 TabCombat:CreateToggle({
     Name = "Auto Attack + Skills",
-    CurrentValue = false,
+    CurrentValue = true,
     Callback = function(v)
         AutoSkill = v
         if v then
@@ -533,5 +533,22 @@ TabSettings:CreateButton({
         Rayfield:Destroy()
     end
 })
+
+-- Iniciar Auto TP automaticamente
+if enabled then
+    task.spawn(function()
+        task.wait(1)  -- Pequeno delay para garantir que tudo carregou
+        startLoop()
+    end)
+end
+
+-- Iniciar Auto Attack + Skills automaticamente
+if AutoSkill then
+    task.spawn(function()
+        task.wait(1.5)  -- Delay para garantir que o personagem carregou
+        autoAttack()
+        autoSkills()
+    end)
+end
 
 print("✅ Hub carregado com TP original preservado")
