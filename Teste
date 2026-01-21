@@ -116,6 +116,11 @@ local MobStates = {
 	    label = "Lacaio de Gelo"
 	},
 
+	["얼어붙은 핏빛"] = {
+	    enabled = false,
+	    label = "Boss de Gelo 2"
+	},
+
 -- Recursos / Minérios
 
 	["용력석"] = {
