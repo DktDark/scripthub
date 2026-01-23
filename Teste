@@ -61,10 +61,15 @@ local MobStates = {
         label = "Krampus"
     },
 
-	["파라다이스 수장"] = {
+	["고블린"] = {
         enabled = false,
         label = "Boss Sakura"
     },
+
+	["파라다이스 수장"] = {
+        enabled = false,
+        label = "Boss Sakura"
+	},
 
 	["더 할루시네이션"] = {
         enabled = false,
