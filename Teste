@@ -63,7 +63,7 @@ local MobStates = {
 
 	["고블린"] = {
         enabled = false,
-        label = "Boss Sakura"
+        label = "Goblin"
     },
 
 	["파라다이스 수장"] = {
