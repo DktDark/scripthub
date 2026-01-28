@@ -1,4 +1,3 @@
-
 --==================================================
 -- RAYFIELD HUB - AUTO TP ORIGINAL + AUTO SKILL
 --==================================================
@@ -405,6 +404,128 @@ end)
 -- UI RAYFIELD
 --==================================================
 
+-- NEW: Nearby mob scanner settings and functions
+-- These let you scan nearby mobs and add them to MobStates (Auto Teleport list).
+local NEARBY_DISTANCE_LIMIT = 300 -- default distance in studs
+local NEARBY_CHECK_INTERVAL = 0.5 -- default interval (seconds)
+local AutoRefreshNearby = false
+local autoRefreshConn = nil
+
+local function calculateDistance(position1, position2)
+    return (position1 - position2).Magnitude
+end
+
+local function findNearbyMobs_local()
+    local char = getCharacter()
+    local hrp = getHRP(char)
+    if not hrp then return {} end
+
+    local playerPosition = hrp.Position
+    local nearby = {}
+
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") then
+            if obj == char then
+                continue
+            end
+
+            local mobHRP = getHRP(obj) or obj:FindFirstChild("Torso")
+            if not mobHRP then
+                continue
+            end
+
+            if not isAlive(obj) then
+                continue
+            end
+
+            local distance = calculateDistance(playerPosition, mobHRP.Position)
+            if distance <= NEARBY_DISTANCE_LIMIT then
+                table.insert(nearby, {
+                    Name = obj.Name,
+                    Distance = math.floor(distance),
+                    Model = obj,
+                    Position = mobHRP.Position
+                })
+            end
+        end
+    end
+
+    -- sort by distance
+    table.sort(nearby, function(a,b) return a.Distance < b.Distance end)
+    return nearby
+end
+
+local function scanAndAddNearbyMobs()
+    local found = findNearbyMobs_local()
+    if #found == 0 then
+        Rayfield:Notify({
+            Title = "Scan Nearby Mobs",
+            Content = "Nenhum mob encontrado nas proximidades (" .. NEARBY_DISTANCE_LIMIT .. " studs).",
+            Duration = 3,
+            Image = 4483362458
+        })
+        return
+    end
+
+    local added = 0
+    for _, mob in ipairs(found) do
+        if not MobStates[mob.Name] then
+            -- Add to MobStates and create a toggle in the UI
+            MobStates[mob.Name] = {
+                enabled = true,
+                label = mob.Name
+            }
+
+            -- Create toggle dynamically in TabFarm
+            -- Use a closure to capture the mob name
+            local mobName = mob.Name
+            TabFarm:CreateToggle({
+                Name = mobName .. " (" .. mob.label or mobName .. ")",
+                CurrentValue = true,
+                Callback = function(v)
+                    if MobStates[mobName] then
+                        MobStates[mobName].enabled = v
+                        currentTarget = nil
+                    end
+                end
+            })
+
+            added = added + 1
+        else
+            -- optionally re-enable existing mob (keeps user's previous setting otherwise)
+            -- MobStates[mob.Name].enabled = true
+        end
+    end
+
+    Rayfield:Notify({
+        Title = "Scan Nearby Mobs",
+        Content = "Encontrados: " .. tostring(#found) .. " | Novos adicionados: " .. tostring(added),
+        Duration = 4,
+        Image = 4483362458
+    })
+end
+
+local function startAutoRefreshNearby()
+    if autoRefreshConn then return end
+    autoRefreshConn = RunService.Heartbeat:Connect(function(dt)
+        -- Use a timer to control interval
+    end)
+
+    -- use a simple loop to avoid dealing with dt accumulation
+    task.spawn(function()
+        while AutoRefreshNearby do
+            pcall(scanAndAddNearbyMobs)
+            local waitTime = NEARBY_CHECK_INTERVAL or 0.5
+            task.wait(waitTime)
+        end
+        if autoRefreshConn then
+            autoRefreshConn:Disconnect()
+            autoRefreshConn = nil
+        end
+    end)
+end
+
+-- UI: Auto Teleport toggle
 TabFarm:CreateToggle({
     Name = "Auto Teleport",
     CurrentValue = true,
@@ -419,6 +540,7 @@ TabFarm:CreateToggle({
     end
 })
 
+-- Create toggles for existing MobStates
 for realName, data in pairs(MobStates) do
     TabFarm:CreateToggle({
         Name = realName .. " (" .. data.label .. ")",
@@ -429,6 +551,65 @@ for realName, data in pairs(MobStates) do
         end
     })
 end
+
+-- NEW: Controls to scan and auto-refresh nearby mobs
+TabFarm:CreateSection("Nearby Mob Scanner")
+
+TabFarm:CreateButton({
+    Name = "Scan Nearby Mobs",
+    Callback = function()
+        scanAndAddNearbyMobs()
+    end
+})
+
+TabFarm:CreateToggle({
+    Name = "Auto Refresh Nearby Mobs",
+    CurrentValue = false,
+    Callback = function(v)
+        AutoRefreshNearby = v
+        if v then
+            startAutoRefreshNearby()
+            Rayfield:Notify({
+                Title = "Auto Refresh",
+                Content = "Atualização automática de mobs ativada.",
+                Duration = 3,
+                Image = 4483362458
+            })
+        else
+            -- stopping will allow the loop to exit naturally
+            Rayfield:Notify({
+                Title = "Auto Refresh",
+                Content = "Atualização automática de mobs desativada.",
+                Duration = 3,
+                Image = 4483362458
+            })
+        end
+    end
+})
+
+TabFarm:CreateSlider({
+    Name = "Nearby Distance (studs)",
+    Range = {50, 2000},
+    Increment = 10,
+    CurrentValue = NEARBY_DISTANCE_LIMIT,
+    Callback = function(v)
+        NEARBY_DISTANCE_LIMIT = v
+    end
+})
+
+TabFarm:CreateSlider({
+    Name = "Nearby Scan Interval (s)",
+    Range = {0.1, 10},
+    Increment = 0.1,
+    CurrentValue = NEARBY_CHECK_INTERVAL,
+    Callback = function(v)
+        NEARBY_CHECK_INTERVAL = v
+    end
+})
+
+--==================================================
+-- CONTINUED UI (ORIGINAL)
+--==================================================
 
 TabCombat:CreateToggle({
     Name = "Auto Attack + Skills",
