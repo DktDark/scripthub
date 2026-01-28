@@ -51,7 +51,7 @@ local enabled = true
 local currentTarget = nil
 local loopRunning = false
 
-local TELEPORT_OFFSET = Vector3.new(0, 10, 0)
+local TELEPORT_OFFSET = Vector3.new(0, 0, 0)
 local TELEPORT_DELAY = 0.35
 
 -- LISTA DE MOBS (REAL = COREANO)
