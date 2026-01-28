@@ -1,1 +1,565 @@
 
+--==================================================
+-- RAYFIELD HUB - AUTO TP ORIGINAL + AUTO SKILL
+--==================================================
+
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "Dark Hub",
+    LoadingTitle = "Dark Hub",
+    LoadingSubtitle = "Auto TP & Skills",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "DarkHub",
+        FileName = "Config"
+    }
+})
+
+local TabFarm = Window:CreateTab("Farm", 4483362458)
+local TabCombat = Window:CreateTab("Combat", 4483362458)
+local TabSettings = Window:CreateTab("Settings", 4483362458)
+
+--==================================================
+-- SERVICES / PLAYER
+--==================================================
+
+local Players = game:GetService("Players")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+
+local function getCharacter()
+    return player.Character or player.CharacterAdded:Wait()
+end
+
+local function getHRP(model)
+    return model and model:FindFirstChild("HumanoidRootPart")
+end
+
+local function isAlive(model)
+    local hum = model:FindFirstChildOfClass("Humanoid")
+    return hum and hum.Health > 0
+end
+
+--==================================================
+-- CONFIG AUTO TP (ORIGINAL)
+--==================================================
+
+local enabled = true
+local currentTarget = nil
+local loopRunning = false
+
+local TELEPORT_OFFSET = Vector3.new(0, 10, 0)
+local TELEPORT_DELAY = 0.35
+
+-- LISTA DE MOBS (REAL = COREANO)
+local MobStates = {
+    ["크람푸스"] = {
+        enabled = false,
+        label = "Krampus"
+    },
+
+	["고블린"] = {
+        enabled = false,
+        label = "Goblin"
+    },
+
+	["파라다이스 수장"] = {
+        enabled = false,
+        label = "Boss Sakura"
+	},
+
+	["더 할루시네이션"] = {
+        enabled = false,
+        label = "Alucinação"
+    },
+
+	["다크 기사단장"] = {
+        enabled = false,
+        label = "Cavaleiro das Trevas"
+    },
+
+	["용암 골렘"] = {
+        enabled = true,
+        label = "Golem de Lava"
+    },
+	
+	["예티"] = {
+	    enabled = false,
+	    label = "Yeti"
+	},
+	
+	["나락화 수호자"] = {
+	    enabled = false,
+	    label = "Narak"
+	},
+	
+	["타이탄 아머로드"] = {
+	    enabled = false,
+	    label = "Titã"
+	},
+
+	["미라"] = {
+	    enabled = false,
+	    label = "Múmia"
+	},
+
+	["포자링"] = {
+	    enabled = false,
+	    label = "Cogumelo"
+	},
+
+	["아르카나"] = {
+	    enabled = false,
+	    label = "Boss de Gelo"
+	},
+
+	["서리 늑대"] = {
+	    enabled = false,
+	    label = "Lacaio de Gelo"
+	},
+
+	["얼어붙은 핏빛"] = {
+	    enabled = false,
+	    label = "Boss de Gelo 2"
+	},
+
+-- Recursos / Minérios
+
+	["용력석"] = {
+	    enabled = false,
+	    label = "Mitico Ore"
+	},
+	
+	["마나 광물"] = {
+	    enabled = false,
+	    label = "Mana Ore"
+	},
+	
+	["순수한 마나 광석"] = {
+	    enabled = false,
+	    label = "Mana Pura"
+	},
+}
+
+--==================================================
+-- LOCK DE POSIÇÃO (IGUAL AO ORIGINAL)
+--==================================================
+
+local function clearLock(hrp)
+    for _, v in ipairs(hrp:GetChildren()) do
+        if v.Name:find("TP") then
+            v:Destroy()
+        end
+    end
+end
+
+local function enableLock(cf)
+    local hrp = getHRP(getCharacter())
+    if not hrp then return end
+
+    clearLock(hrp)
+
+    local att = Instance.new("Attachment", hrp)
+    att.Name = "TP_ATTACH"
+
+    local ap = Instance.new("AlignPosition", hrp)
+    ap.Name = "TP_ALIGN_POS"
+    ap.Attachment0 = att
+    ap.Mode = Enum.PositionAlignmentMode.OneAttachment
+    ap.Position = cf.Position
+    ap.MaxForce = math.huge
+    ap.Responsiveness = 200
+    ap.RigidityEnabled = true
+
+    local ao = Instance.new("AlignOrientation", hrp)
+    ao.Name = "TP_ALIGN_ORI"
+    ao.Attachment0 = att
+    ao.Mode = Enum.OrientationAlignmentMode.OneAttachment
+    ao.CFrame = cf * CFrame.Angles(math.rad(-65), 0, 0)
+    ao.MaxTorque = math.huge
+    ao.Responsiveness = 200
+    ao.RigidityEnabled = true
+
+    hrp.CFrame = cf
+end
+
+local function updateLock(cf)
+    local hrp = getHRP(getCharacter())
+    if not hrp then return end
+
+    local ap = hrp:FindFirstChild("TP_ALIGN_POS")
+    local ao = hrp:FindFirstChild("TP_ALIGN_ORI")
+
+    if ap then ap.Position = cf.Position end
+    if ao then ao.CFrame = cf * CFrame.Angles(math.rad(-65), 0, 0) end
+end
+
+local function disableLock()
+    local hrp = getHRP(getCharacter())
+    if hrp then clearLock(hrp) end
+end
+
+--==================================================
+-- MOB
+--==================================================
+
+local function isValidMob(name)
+    return MobStates[name] and MobStates[name].enabled
+end
+
+local function findNearestMob()
+    local hrp = getHRP(getCharacter())
+    if not hrp then return nil end
+
+    local closest, dist = nil, math.huge
+
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Model")
+        and isValidMob(obj.Name)
+        and isAlive(obj) then
+
+            local mobHRP = getHRP(obj)
+            if mobHRP then
+                local d = (hrp.Position - mobHRP.Position).Magnitude
+                if d < dist then
+                    dist = d
+                    closest = obj
+                end
+            end
+        end
+    end
+
+    return closest
+end
+
+local function teleportToMob(mob)
+    local mobHRP = getHRP(mob)
+    if not mobHRP then return end
+
+    local cf = mobHRP.CFrame + TELEPORT_OFFSET
+    enableLock(cf)
+    updateLock(cf)
+end
+
+--==================================================
+-- LOOP AUTO TP (ORIGINAL)
+--==================================================
+
+local function startLoop()
+    if loopRunning then return end
+    loopRunning = true
+
+    task.spawn(function()
+        while enabled do
+            if not currentTarget or not isAlive(currentTarget) then
+                currentTarget = findNearestMob()
+            end
+
+            if currentTarget then
+                teleportToMob(currentTarget)
+            end
+
+            task.wait(TELEPORT_DELAY)
+        end
+        loopRunning = false
+    end)
+end
+
+--==================================================
+-- FLY (INDEPENDENTE)
+--==================================================
+
+local FlyEnabled = false
+local FlySpeed = 60
+local FlyBind = Enum.KeyCode.F
+
+local flyBV, flyBG, flyConn
+
+local function startFly()
+    local hrp = getHRP(getCharacter())
+    if not hrp then return end
+
+    flyBV = Instance.new("BodyVelocity", hrp)
+    flyBV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+
+    flyBG = Instance.new("BodyGyro", hrp)
+    flyBG.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+
+    flyConn = RunService.RenderStepped:Connect(function()
+        if not FlyEnabled then return end
+
+        local cam = workspace.CurrentCamera
+        local dir = Vector3.zero
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += cam.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= cam.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= cam.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += cam.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.new(0,1,0) end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= Vector3.new(0,1,0) end
+
+        flyBV.Velocity = dir.Magnitude > 0 and dir.Unit * FlySpeed or Vector3.zero
+        flyBG.CFrame = cam.CFrame
+    end)
+end
+
+local function stopFly()
+    if flyConn then flyConn:Disconnect() end
+    if flyBV then flyBV:Destroy() end
+    if flyBG then flyBG:Destroy() end
+end
+
+--==================================================
+-- AUTO SKILL (MANTIDO)
+--==================================================
+
+local AutoSkill = true
+local ATTACK_DELAY = 0.15
+local attacking = false
+local usingSkills = false
+
+local function equipTool()
+    local char = getCharacter()
+    if char:FindFirstChildOfClass("Tool") then return end
+
+    local bp = player:FindFirstChildOfClass("Backpack")
+    if bp then
+        local tool = bp:FindFirstChildOfClass("Tool")
+        if tool then tool.Parent = char end
+    end
+end
+
+local function autoAttack()
+    if attacking then return end
+    attacking = true
+
+    task.spawn(function()
+        while AutoSkill do
+            equipTool()
+            local tool = getCharacter():FindFirstChildOfClass("Tool")
+            if tool then pcall(function() tool:Activate() end) end
+            task.wait(ATTACK_DELAY)
+        end
+        attacking = false
+    end)
+end
+
+local function autoSkills()
+    if usingSkills then return end
+    usingSkills = true
+
+    task.spawn(function()
+        while AutoSkill do
+            for _, key in ipairs({
+                Enum.KeyCode.E,
+                Enum.KeyCode.R,
+                Enum.KeyCode.T
+            }) do
+                VirtualInputManager:SendKeyEvent(true, key, false, game)
+                VirtualInputManager:SendKeyEvent(false, key, false, game)
+                task.wait()
+            end
+        end
+        usingSkills = false
+    end)
+end
+
+--==================================================
+-- SAVE TELEPORT (INDEPENDENTE)
+--==================================================
+
+local SavedPos = nil
+local AutoSavedTP = false
+local SavedTPDelay = 60
+local SavedTPBind = Enum.KeyCode.G
+
+local function teleportSavedPos()
+    if not SavedPos then return end
+    disableLock()
+    getHRP(getCharacter()).CFrame = CFrame.new(SavedPos + Vector3.new(0,3,0))
+end
+
+task.spawn(function()
+    while true do
+        if AutoSavedTP and SavedPos then
+            task.wait(SavedTPDelay)
+            teleportSavedPos()
+        else
+            task.wait(0.3)
+        end
+    end
+end)
+
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == SavedTPBind then
+        teleportSavedPos()
+    end
+end)
+
+--==================================================
+-- UI RAYFIELD
+--==================================================
+
+TabFarm:CreateToggle({
+    Name = "Auto Teleport",
+    CurrentValue = true,
+    Callback = function(v)
+        enabled = v
+        if v then
+            startLoop()
+        else
+            disableLock()
+            currentTarget = nil
+        end
+    end
+})
+
+for realName, data in pairs(MobStates) do
+    TabFarm:CreateToggle({
+        Name = realName .. " (" .. data.label .. ")",
+        CurrentValue = data.enabled,
+        Callback = function(v)
+            data.enabled = v
+            currentTarget = nil
+        end
+    })
+end
+
+TabCombat:CreateToggle({
+    Name = "Auto Attack + Skills",
+    CurrentValue = true,
+    Callback = function(v)
+        AutoSkill = v
+        if v then
+            autoAttack()
+            autoSkills()
+        end
+    end
+})
+
+--==================================================
+-- RESPAWN SAFE
+--==================================================
+
+player.CharacterAdded:Connect(function()
+    task.wait(0.4)
+    currentTarget = nil
+    if enabled then startLoop() end
+    if AutoSkill then
+        autoAttack()
+        autoSkills()
+    end
+end)
+
+--==================================================
+-- SETTINGS (ORGANIZADO)
+--==================================================
+
+-- Seção Fly
+TabSettings:CreateSection("Fly Settings")
+
+TabSettings:CreateToggle({
+    Name = "Fly",
+    CurrentValue = false,
+    Callback = function(v)
+        FlyEnabled = v
+        if v then startFly() else stopFly() end
+    end
+})
+
+TabSettings:CreateSlider({
+    Name = "Fly Speed",
+    Range = {10, 200},
+    Increment = 5,
+    CurrentValue = FlySpeed,
+    Callback = function(v)
+        FlySpeed = v
+    end
+})
+
+TabSettings:CreateKeybind({
+    Name = "Fly Bind",
+    CurrentKeybind = "F",
+    Callback = function(key)
+        FlyBind = Enum.KeyCode[key]
+    end
+})
+
+TabSettings:CreateSection("Save Teleport Settings")
+
+TabSettings:CreateButton({
+    Name = "Salvar Posição",
+    Callback = function()
+        SavedPos = getHRP(getCharacter()).Position
+        Rayfield:Notify({
+            Title = "Posição Salva",
+            Content = "Posição atual foi salva com sucesso!",
+            Duration = 3,
+            Image = 4483362458
+        })
+    end
+})
+
+TabSettings:CreateButton({
+    Name = "Teleportar para Posição",
+    Callback = teleportSavedPos
+})
+
+TabSettings:CreateToggle({
+    Name = "Auto TP Salvo",
+    CurrentValue = false,
+    Callback = function(v)
+        AutoSavedTP = v
+    end
+})
+
+TabSettings:CreateSlider({
+    Name = "Tempo Auto TP (segundos)",
+    Range = {5, 600},
+    Increment = 5,
+    CurrentValue = SavedTPDelay,
+    Callback = function(v)
+        SavedTPDelay = v
+    end
+})
+
+TabSettings:CreateKeybind({
+    Name = "Bind TP Salvo",
+    CurrentKeybind = "G",
+    Callback = function(key)
+        SavedTPBind = Enum.KeyCode[key]
+    end
+})
+
+TabSettings:CreateSection("Hub")
+
+TabSettings:CreateButton({
+    Name = "Fechar Hub",
+    Callback = function()
+        Rayfield:Destroy()
+    end
+})
+
+-- Iniciar Auto TP automaticamente
+if enabled then
+    task.spawn(function()
+        task.wait(1)  -- Pequeno delay para garantir que tudo carregou
+        startLoop()
+    end)
+end
+
+-- Iniciar Auto Attack + Skills automaticamente
+if AutoSkill then
+    task.spawn(function()
+        task.wait(1.5)  -- Delay para garantir que o personagem carregou
+        autoAttack()
+        autoSkills()
+    end)
+end
+
+print("✅ Hub carregado com TP original preservado")
