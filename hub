@@ -54,83 +54,105 @@ local TELEPORT_DELAY = 0.35
 
 -- LISTA DE MOBS (REAL = COREANO)
 local MobStates = {
-    ["크람푸스"] = {
-        enabled = false,
-        label = "Krampus"
-    },
+    ["Enemy1"] = {
+    enabled = false,
+    label = "Enemy1"
+},
 
-	["파라다이스 수장"] = {
-        enabled = false,
-        label = "Boss Sakura"
-    },
+["Enemy2"] = {
+    enabled = false,
+    label = "Enemy2"
+},
 
-	["더 할루시네이션"] = {
-        enabled = false,
-        label = "Alucinação"
-    },
+["Enemy3"] = {
+    enabled = false,
+    label = "Enemy3"
+},
 
-	["다크 기사단장"] = {
-        enabled = false,
-        label = "Cavaleiro das Trevas"
-    },
+["Enemy4"] = {
+    enabled = false,
+    label = "Enemy4"
+},
 
-	["용암 골렘"] = {
-        enabled = false,
-        label = "Golem de Lava"
-    },
-	
-	["예티"] = {
-	    enabled = false,
-	    label = "Yeti"
-	},
-	
-	["나락화 수호자"] = {
-	    enabled = false,
-	    label = "Narak"
-	},
-	
-	["타이탄 아머로드"] = {
-	    enabled = false,
-	    label = "Titã"
-	},
+["Enemy5"] = {
+    enabled = false,
+    label = "Enemy5"
+},
 
-	["미라"] = {
-	    enabled = false,
-	    label = "Múmia"
-	},
+["Enemy6"] = {
+    enabled = false,
+    label = "Enemy6"
+},
 
-	["포자링"] = {
-	    enabled = false,
-	    label = "Cogumelo"
-	},
+["Enemy7"] = {
+    enabled = false,
+    label = "Enemy7"
+},
 
-	["아르카나"] = {
-	    enabled = false,
-	    label = "Boss de Gelo"
-	},
+["Enemy8"] = {
+    enabled = false,
+    label = "Enemy8"
+},
 
-	["서리 늑대"] = {
-	    enabled = false,
-	    label = "Lacaio de Gelo"
-	},
+["Enemy9"] = {
+    enabled = false,
+    label = "Enemy9"
+},
 
--- Recursos / Minérios
+["Enemy10"] = {
+    enabled = false,
+    label = "Enemy10"
+},
 
-	["용력석"] = {
-	    enabled = false,
-	    label = "Mitico Ore"
-	},
-	
-	["마나 광물"] = {
-	    enabled = false,
-	    label = "Mana Ore"
-	},
-	
-	["순수한 마나 광석"] = {
-	    enabled = false,
-	    label = "Mana Pura"
-	},
-}
+["Enemy11"] = {
+    enabled = false,
+    label = "Enemy11"
+},
+
+["Enemy12"] = {
+    enabled = false,
+    label = "Enemy12"
+},
+
+["Enemy13"] = {
+    enabled = false,
+    label = "Enemy13"
+},
+
+["Enemy14"] = {
+    enabled = false,
+    label = "Enemy14"
+},
+
+["Enemy15"] = {
+    enabled = false,
+    label = "Enemy15"
+},
+
+["Enemy16"] = {
+    enabled = false,
+    label = "Enemy16"
+},
+
+["Enemy17"] = {
+    enabled = false,
+    label = "Enemy17"
+},
+
+["Enemy18"] = {
+    enabled = false,
+    label = "Enemy18"
+},
+
+["Enemy19"] = {
+    enabled = false,
+    label = "Enemy19"
+},
+
+["Enemy20"] = {
+    enabled = false,
+    label = "Enemy20"
+},
 
 --==================================================
 -- LOCK DE POSIÇÃO (IGUAL AO ORIGINAL)
