@@ -42,7 +42,7 @@ local function isAlive(model)
 end
 
 --==================================================
--- CONFIG AUTO TP (ORIGINAL)
+-- CONFIG AUTO TP
 --==================================================
 
 local enabled = false
@@ -52,110 +52,34 @@ local loopRunning = false
 local TELEPORT_OFFSET = Vector3.new(0, 10, 0)
 local TELEPORT_DELAY = 0.35
 
--- LISTA DE MOBS (REAL = COREANO)
+-- LISTA DE MOBS
 local MobStates = {
-    ["Enemy1"] = {
-    enabled = false,
-    label = "Enemy1"
-},
 
-["Enemy2"] = {
-    enabled = false,
-    label = "Enemy2"
-},
+    ["Enemy1"] = {enabled = false, label = "Enemy1"},
+    ["Enemy2"] = {enabled = false, label = "Enemy2"},
+    ["Enemy3"] = {enabled = false, label = "Enemy3"},
+    ["Enemy4"] = {enabled = false, label = "Enemy4"},
+    ["Enemy5"] = {enabled = false, label = "Enemy5"},
+    ["Enemy6"] = {enabled = false, label = "Enemy6"},
+    ["Enemy7"] = {enabled = false, label = "Enemy7"},
+    ["Enemy8"] = {enabled = false, label = "Enemy8"},
+    ["Enemy9"] = {enabled = false, label = "Enemy9"},
+    ["Enemy10"] = {enabled = false, label = "Enemy10"},
+    ["Enemy11"] = {enabled = false, label = "Enemy11"},
+    ["Enemy12"] = {enabled = false, label = "Enemy12"},
+    ["Enemy13"] = {enabled = false, label = "Enemy13"},
+    ["Enemy14"] = {enabled = false, label = "Enemy14"},
+    ["Enemy15"] = {enabled = false, label = "Enemy15"},
+    ["Enemy16"] = {enabled = false, label = "Enemy16"},
+    ["Enemy17"] = {enabled = false, label = "Enemy17"},
+    ["Enemy18"] = {enabled = false, label = "Enemy18"},
+    ["Enemy19"] = {enabled = false, label = "Enemy19"},
+    ["Enemy20"] = {enabled = false, label = "Enemy20"}
 
-["Enemy3"] = {
-    enabled = false,
-    label = "Enemy3"
-},
-
-["Enemy4"] = {
-    enabled = false,
-    label = "Enemy4"
-},
-
-["Enemy5"] = {
-    enabled = false,
-    label = "Enemy5"
-},
-
-["Enemy6"] = {
-    enabled = false,
-    label = "Enemy6"
-},
-
-["Enemy7"] = {
-    enabled = false,
-    label = "Enemy7"
-},
-
-["Enemy8"] = {
-    enabled = false,
-    label = "Enemy8"
-},
-
-["Enemy9"] = {
-    enabled = false,
-    label = "Enemy9"
-},
-
-["Enemy10"] = {
-    enabled = false,
-    label = "Enemy10"
-},
-
-["Enemy11"] = {
-    enabled = false,
-    label = "Enemy11"
-},
-
-["Enemy12"] = {
-    enabled = false,
-    label = "Enemy12"
-},
-
-["Enemy13"] = {
-    enabled = false,
-    label = "Enemy13"
-},
-
-["Enemy14"] = {
-    enabled = false,
-    label = "Enemy14"
-},
-
-["Enemy15"] = {
-    enabled = false,
-    label = "Enemy15"
-},
-
-["Enemy16"] = {
-    enabled = false,
-    label = "Enemy16"
-},
-
-["Enemy17"] = {
-    enabled = false,
-    label = "Enemy17"
-},
-
-["Enemy18"] = {
-    enabled = false,
-    label = "Enemy18"
-},
-
-["Enemy19"] = {
-    enabled = false,
-    label = "Enemy19"
-},
-
-["Enemy20"] = {
-    enabled = false,
-    label = "Enemy20"
-},
+}
 
 --==================================================
--- LOCK DE POSIÇÃO (IGUAL AO ORIGINAL)
+-- LOCK DE POSIÇÃO
 --==================================================
 
 local function clearLock(hrp)
@@ -255,7 +179,7 @@ local function teleportToMob(mob)
 end
 
 --==================================================
--- LOOP AUTO TP (ORIGINAL)
+-- LOOP AUTO TP
 --==================================================
 
 local function startLoop()
@@ -279,7 +203,7 @@ local function startLoop()
 end
 
 --==================================================
--- AUTO SKILL (MANTIDO)
+-- AUTO SKILL
 --==================================================
 
 local AutoSkill = false
@@ -319,11 +243,7 @@ local function autoSkills()
 
     task.spawn(function()
         while AutoSkill do
-            for _, key in ipairs({
-                Enum.KeyCode.E,
-                Enum.KeyCode.R,
-                Enum.KeyCode.T
-            }) do
+            for _, key in ipairs({Enum.KeyCode.E, Enum.KeyCode.R, Enum.KeyCode.T}) do
                 VirtualInputManager:SendKeyEvent(true, key, false, game)
                 VirtualInputManager:SendKeyEvent(false, key, false, game)
                 task.wait()
@@ -334,7 +254,7 @@ local function autoSkills()
 end
 
 --==================================================
--- UI RAYFIELD
+-- UI
 --==================================================
 
 TabFarm:CreateToggle({
