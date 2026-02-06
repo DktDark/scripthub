@@ -112,7 +112,7 @@ local function enableLock(cf)
     ao.Name = "TP_ALIGN_ORI"
     ao.Attachment0 = att
     ao.Mode = Enum.OrientationAlignmentMode.OneAttachment
-    ao.CFrame = cf * CFrame.Angles(math.rad(-65), 0, 0)
+    ao.CFrame = cf * CFrame.Angles(math.rad(0), 0, 0)
     ao.MaxTorque = math.huge
     ao.Responsiveness = 200
     ao.RigidityEnabled = true
@@ -128,7 +128,7 @@ local function updateLock(cf)
     local ao = hrp:FindFirstChild("TP_ALIGN_ORI")
 
     if ap then ap.Position = cf.Position end
-    if ao then ao.CFrame = cf * CFrame.Angles(math.rad(-65), 0, 0) end
+    if ao then ao.CFrame = cf * CFrame.Angles(math.rad(0), 0, 0) end
 end
 
 local function disableLock()
