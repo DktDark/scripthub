@@ -1,145 +1,375 @@
---// SERVICES
+-- Anime Eternal 1.0 - Auto Farm System (Reconstruído)
+-- by AI_Hub
+
 local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
+local PathfindingService = game:GetService("PathfindingService")
 local RunService = game:GetService("RunService")
-
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterGui = game:GetService("StarterGui")
+local VirtualUser = game:GetService("VirtualUser")
+local CoreGui = game:GetService("CoreGui")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 local LocalPlayer = Players.LocalPlayer
-local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-local Humanoid = Character:WaitForChild("Humanoid")
-local HRP = Character:WaitForChild("HumanoidRootPart")
 
---// FLUENT UI
+-- Carregar biblioteca Fluent
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
---// VARIABLES
-local AutoFarm = false
-local SelectedMobs = {}
-local FarmMethod = "Teleport"
-local TeleportDelay = 0.2
-local EnemiesFolder = Workspace:WaitForChild("Enemies")
+-- Variáveis de controle do Auto Farm
+local farmActive = false
+local selectedEnemies = {}
+local farmMethod = "Walk To"
+local attackCooldown = 0.5
+local currentTarget = nil
+local farmConnection = nil
+local enemyList = {}  -- Lista de inimigos disponíveis
 
---// WINDOW
-local Window = Fluent:CreateWindow({
-    Title = "Security Test - Auto Farm",
-    SubTitle = "Anti-Cheat Testing",
-    Size = UDim2.fromOffset(580,460),
-    Theme = "Dark",
-    TabWidth = 160
-})
+-- Anti-AFK
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:Button2Down(Vector2.new(0,0), CFrame.new(0,10,0))
+    task.wait(1)
+    VirtualUser:Button2Up(Vector2.new(0,0), CFrame.new(0,10,0))
+end)
 
-local Tab = Window:AddTab({
-    Title = "Auto Farm",
-    Icon = "sword"
-})
-
---// GET UNIQUE MOB NAMES
-local function GetMobList()
-    local List = {}
-    local Added = {}
-
-    for _, mob in pairs(EnemiesFolder:GetChildren()) do
-        if mob:FindFirstChild("Humanoid") then
-            if not Added[mob.Name] then
-                Added[mob.Name] = true
-                table.insert(List, mob.Name)
+-- Função para encontrar inimigos no jogo
+local function FindEnemies()
+    local enemies = {}
+    -- Procura por modelos com Humanoid que não são o jogador
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart") then
+            local humanoid = obj:FindFirstChild("Humanoid")
+            if humanoid and humanoid.Health > 0 and obj.Name ~= LocalPlayer.Name then
+                -- Evita duplicatas e jogadores
+                if not Players:GetPlayerFromCharacter(obj) then
+                    table.insert(enemies, obj.Name)
+                end
             end
         end
     end
-
-    return List
+    -- Remove duplicatas
+    local uniqueEnemies = {}
+    for _, name in ipairs(enemies) do
+        if not table.find(uniqueEnemies, name) then
+            table.insert(uniqueEnemies, name)
+        end
+    end
+    return uniqueEnemies
 end
 
---// DROPDOWN MULTI
-local EnemyDropdown = Tab:AddDropdown("EnemySelect", {
-    Title = "Select Mobs",
-    Values = GetMobList(),
+-- Função para encontrar um inimigo específico pelo nome
+local function FindEnemyByName(enemyName)
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj:IsA("Model") and obj.Name == enemyName and obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart") then
+            local humanoid = obj:FindFirstChild("Humanoid")
+            if humanoid and humanoid.Health > 0 then
+                return obj
+            end
+        end
+    end
+    return nil
+end
+
+-- Função para atacar o inimigo (simulação de clique)
+local function AttackEnemy()
+    -- Tenta encontrar um Remote de ataque (comum em jogos)
+    local attackRemote = ReplicatedStorage:FindFirstChild("Attack") or 
+                        ReplicatedStorage:FindFirstChild("Damage") or
+                        ReplicatedStorage:FindFirstChild("Hit") or
+                        ReplicatedStorage:FindFirstChild("Events"):FindFirstChild("Damage")
+    
+    if attackRemote then
+        attackRemote:FireServer()
+    else
+        -- Simulação de clique como fallback
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+        task.wait(0.1)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+    end
+end
+
+-- Função principal do Auto Farm
+local function StartAutoFarm()
+    if farmConnection then farmConnection:Disconnect() end
+    
+    farmConnection = RunService.Heartbeat:Connect(function()
+        if not farmActive or #selectedEnemies == 0 then return end
+        if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+        
+        local character = LocalPlayer.Character
+        local humanoid = character:FindFirstChild("Humanoid")
+        local rootPart = character:FindFirstChild("HumanoidRootPart")
+        
+        if not humanoid or not rootPart then return end
+        
+        -- Procura o próximo alvo vivo
+        local target = nil
+        for _, enemyName in ipairs(selectedEnemies) do
+            local potentialTarget = FindEnemyByName(enemyName)
+            if potentialTarget then
+                target = potentialTarget
+                break
+            end
+        end
+        
+        if not target then return end
+        
+        currentTarget = target
+        local targetRoot = target:FindFirstChild("HumanoidRootPart")
+        local targetHumanoid = target:FindFirstChild("Humanoid")
+        
+        if not targetRoot or not targetHumanoid then return end
+        
+        -- Verifica distância até o alvo
+        local distance = (rootPart.Position - targetRoot.Position).Magnitude
+        
+        if farmMethod == "Teleport" then
+            -- Teleporta para o inimigo
+            rootPart.CFrame = targetRoot.CFrame * CFrame.new(0, 5, 0)
+            AttackEnemy()
+        else
+            -- Walk To - usa pathfinding
+            if distance > 10 then
+                -- Anda até o inimigo
+                local path = PathfindingService:CreatePath()
+                path:ComputeAsync(rootPart.Position, targetRoot.Position)
+                
+                if path.Status == Enum.PathStatus.Success then
+                    local waypoints = path:GetWaypoints()
+                    for _, waypoint in ipairs(waypoints) do
+                        if not farmActive or not target or targetHumanoid.Health <= 0 then break end
+                        humanoid:MoveTo(waypoint.Position)
+                        humanoid.MoveToFinished:Wait()
+                    end
+                end
+            elseif distance <= 15 then
+                -- Perto o suficiente para atacar
+                humanoid:MoveTo(rootPart.Position) -- Para de andar
+                AttackEnemy()
+            end
+        end
+        
+        -- Pequena pausa entre ataques
+        task.wait(attackCooldown)
+    end)
+end
+
+-- Criar interface
+local Window = Fluent:CreateWindow({
+    Title = "Anime Eternal 1.0 by AI_Hub",
+    SubTitle = "Auto Farm System",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(580, 460),
+    Acrylic = false,
+    Theme = "Dark",
+    MinimizeKey = Enum.KeyCode.K
+})
+
+-- Aba de Auto Farm
+local FarmTab = Window:AddTab({
+    Icon = "sword",
+    Title = "Auto Farm"
+})
+
+-- Dropdown de inimigos
+local EnemyDropdown = FarmTab:AddDropdown("EnemyDropdown", {
+    Title = "Select Enemies",
+    Description = "Choose enemies to auto farm",
+    Values = {},
     Multi = true,
     Default = {}
 })
 
-EnemyDropdown:OnChanged(function(val)
-    SelectedMobs = val
+-- Botão de refresh
+FarmTab:AddButton({
+    Title = "Refresh Enemies",
+    Description = "Scan for available enemies",
+    Callback = function()
+        local enemies = FindEnemies()
+        if #enemies > 0 then
+            EnemyDropdown:SetValues(enemies)
+            Fluent:Notify({
+                Title = "Enemies Found",
+                Content = string.format("Found %d enemies", #enemies),
+                Duration = 3
+            })
+        else
+            Fluent:Notify({
+                Title = "Warning",
+                Content = "No enemies found in workspace",
+                Duration = 3
+            })
+        end
+    end
+})
+
+-- Dropdown de método de farm
+local MethodDropdown = FarmTab:AddDropdown("FarmMethod", {
+    Title = "Farm Method",
+    Description = "Choose how to reach enemies",
+    Values = {"Walk To", "Teleport"},
+    Multi = false,
+    Default = "Walk To"
+})
+
+-- Toggle de Auto Click
+local ClickToggle = FarmTab:AddToggle("AutoClick", {
+    Title = "Auto Click",
+    Description = "Automatically click when near enemies",
+    Default = false
+})
+
+ClickToggle:OnChanged(function(value)
+    attackCooldown = value and 0.2 or 0.5
 end)
 
---// REFRESH BUTTON
-Tab:AddButton({
-    Title = "Refresh Enemies",
-    Callback = function()
-        EnemyDropdown:SetValues(GetMobList())
+-- Toggle principal de Auto Farm
+local FarmToggle = FarmTab:AddToggle("AutoFarm", {
+    Title = "Auto Farm",
+    Description = "Enable auto farming",
+    Default = false
+})
+
+FarmToggle:OnChanged(function(value)
+    farmActive = value
+    
+    if value then
+        -- Verifica se há inimigos selecionados
+        if #selectedEnemies == 0 then
+            Fluent:Notify({
+                Title = "Error",
+                Content = "Select at least one enemy first",
+                Duration = 3
+            })
+            FarmToggle:SetValue(false)
+            return
+        end
+        
+        -- Inicia o farm
+        StartAutoFarm()
         Fluent:Notify({
-            Title = "Refreshed",
-            Content = "Enemy list rebuilt.",
+            Title = "Auto Farm",
+            Content = "Auto Farm started",
             Duration = 3
         })
+    else
+        -- Para o farm
+        if farmConnection then
+            farmConnection:Disconnect()
+            farmConnection = nil
+        end
+        currentTarget = nil
     end
-})
-
---// FARM METHOD
-local MethodDropdown = Tab:AddDropdown("FarmMethod", {
-    Title = "Farm Method",
-    Values = {"Teleport", "Walk To"},
-    Default = "Teleport"
-})
-
-MethodDropdown:OnChanged(function(val)
-    FarmMethod = val
 end)
 
---// TELEPORT DELAY
-local DelayDropdown = Tab:AddDropdown("TeleportDelay", {
+-- Atualiza inimigos selecionados
+EnemyDropdown:OnChanged(function(values)
+    selectedEnemies = values
+end)
+
+-- Atualiza método de farm
+MethodDropdown:OnChanged(function(value)
+    farmMethod = value
+end)
+
+-- Aba de Status (Stats)
+local StatsTab = Window:AddTab({
+    Icon = "trending-up",
+    Title = "Stats"
+})
+
+-- Toggles de status
+StatsTab:AddToggle("AutoDamage", {
+    Title = "Auto Damage",
+    Description = "Auto assign points to Damage",
+    Default = false
+})
+
+StatsTab:AddToggle("AutoEnergy", {
+    Title = "Auto Energy",
+    Description = "Auto assign points to Energy",
+    Default = false
+})
+
+StatsTab:AddToggle("AutoCoins", {
+    Title = "Auto Coins",
+    Description = "Auto assign points to Coins",
+    Default = false
+})
+
+-- Aba de Misc
+local MiscTab = Window:AddTab({
+    Icon = "help-circle",
+    Title = "Misc"
+})
+
+-- Dropdown de delay de teleporte
+MiscTab:AddDropdown("TeleportDelay", {
     Title = "Teleport Delay",
-    Values = {"0.05","0.1","0.2","0.5","1","2"},
-    Default = "0.2"
+    Description = "Set delay between teleports",
+    Values = {"0.05", "0.1", "0.5", "1", "2"},
+    Multi = false,
+    Default = "0.1"
 })
 
-DelayDropdown:OnChanged(function(val)
-    TeleportDelay = tonumber(val)
+-- Aba de Settings
+local SettingsTab = Window:AddTab({
+    Icon = "settings",
+    Title = "Settings"
+})
+
+-- Configurar SaveManager
+SaveManager:SetLibrary(Fluent)
+InterfaceManager:SetLibrary(Fluent)
+SaveManager:SetFolder("AI_Hub/AnimeEternal")
+InterfaceManager:SetFolder("AI_Hub/AnimeEternal")
+
+-- Criar seções de configuração
+SaveManager:BuildConfigSection(SettingsTab)
+InterfaceManager:BuildInterfaceSection(SettingsTab)
+
+-- Carregar configuração autoload
+SaveManager:LoadAutoloadConfig()
+
+-- Botão flutuante AI
+local AIButtonGui = Instance.new("ScreenGui")
+AIButtonGui.Name = "AI_Button_GUI"
+AIButtonGui.ResetOnSpawn = false
+AIButtonGui.Parent = CoreGui
+
+local AIFrame = Instance.new("Frame")
+AIFrame.Size = UDim2.new(0, 60, 0, 30)
+AIFrame.Position = UDim2.new(0, 100, 0.5, -50)
+AIFrame.BackgroundTransparency = 1
+AIFrame.Active = true
+AIFrame.Draggable = true
+AIFrame.Parent = AIButtonGui
+
+local AIButton = Instance.new("TextButton")
+AIButton.Name = "AIButton"
+AIButton.Size = UDim2.new(1, 0, 1, 0)
+AIButton.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+AIButton.BorderSizePixel = 0
+AIButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+AIButton.Text = "AI"
+AIButton.Font = Enum.Font.GothamBold
+AIButton.TextSize = 18
+AIButton.AutoButtonColor = false
+AIButton.Parent = AIFrame
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = AIButton
+
+-- Botão para minimizar/maximizar a GUI
+AIButton.MouseButton1Click:Connect(function()
+    Window:Toggle()
 end)
 
---// GET TARGET
-local function GetTarget()
-    for _, mob in pairs(EnemiesFolder:GetChildren()) do
-        if table.find(SelectedMobs, mob.Name) then
-            if mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
-                return mob
-            end
-        end
-    end
-end
-
---// MAIN LOOP
-local function StartFarm()
-    task.spawn(function()
-        while AutoFarm do
-            local target = GetTarget()
-
-            if target and target:FindFirstChild("HumanoidRootPart") then
-                local targetHRP = target.HumanoidRootPart
-
-                if FarmMethod == "Teleport" then
-                    -- Instant teleport (highly detectable)
-                    HRP.CFrame = targetHRP.CFrame * CFrame.new(0,0,-3)
-                else
-                    -- MoveTo natural movement
-                    Humanoid:MoveTo(targetHRP.Position)
-                end
-            end
-
-            task.wait(TeleportDelay)
-        end
-    end)
-end
-
---// TOGGLE
-Tab:AddToggle("AutoFarmToggle", {
-    Title = "Auto Farm",
-    Default = false,
-    Callback = function(val)
-        AutoFarm = val
-        if val then
-            StartFarm()
-        end
-    end
+-- Notificação de carregamento
+Fluent:Notify({
+    Title = "Anime Eternal",
+    Content = "Script loaded successfully!",
+    Duration = 5
 })
