@@ -56,9 +56,9 @@ local TELEPORT_DELAY = 0.35
 
 -- LISTA DE MOBS (REAL = COREANO)
 local MobStates = {
-    ["크람푸스"] = {
+    ["Granny"] = {
         enabled = false,
-        label = "Krampus"
+        label = "Granny"
     },
 
 	["고블린"] = {
