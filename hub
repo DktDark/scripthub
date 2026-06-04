@@ -1,3 +1,19 @@
+-- Proteção inicial contra erros de carregamento
+local success, Material = pcall(function()
+    local raw = game:HttpGet("https://raw.githubusercontent.com/Kinlei/MaterialLua/master/Module.lua")
+    local func = loadstring(raw)
+    if func then
+        return func()
+    else
+        error("loadstring retornou nil")
+    end
+end)
+
+if not success then
+    warn("Falha ao carregar a biblioteca Material. Execute novamente ou verifique sua internet.")
+    return
+end
+
 getgenv().BridgeNetWorld1ID = getgenv().BridgeNetWorld1ID or "{"
 getgenv().BridgeNetWorld4ID = getgenv().BridgeNetWorld4ID or "&"
 getgenv().BridgeNetStarID = getgenv().BridgeNetStarID or "a"
@@ -36,8 +52,6 @@ for i, v in pairs(game:GetService("Workspace").Worlds:GetDescendants()) do
         end
     end
 end
-
-local Material = loadstring(game:HttpGet("https://raw.githubusercontent.com/Kinlei/MaterialLua/master/Module.lua"))()
 
 local X = Material.Load({
     Title = "Voxle",
@@ -168,25 +182,23 @@ local function getNPCNinja()
     return thing
 end
 
--- NOVA FUNÇÃO: Sair da DG em onda específica
+-- Função para sair da DG quando atingir determinada onda
 local function sairDGNaOnda(ondaDesejada, modo)
     task.spawn(function()
         local player = game:GetService("Players").LocalPlayer
         local ondaAtual = 0
         
-        -- Aguarda estar dentro da DG
+        -- Aguarda entrar na DG
         repeat task.wait(0.5) until player:GetAttribute("VisibilityContext") == modo
         
-        -- Monitora a onda atual
         while ondaAtual < ondaDesejada do
             task.wait(0.5)
             pcall(function()
-                -- Tenta obter o número da onda atual (pode variar conforme o jogo)
                 if player:GetAttribute("VisibilityContext") ~= modo then
-                    break -- Saiu da DG antes do esperado
+                    return -- já saiu
                 end
                 
-                -- Verifica a onda através de diferentes métodos possíveis
+                -- Tenta capturar o número da onda (ajuste conforme o jogo)
                 local waveGui = player.PlayerGui:FindFirstChild("Wave") or player.PlayerGui:FindFirstChild("WaveDisplay")
                 if waveGui and waveGui:FindFirstChild("TextLabel") then
                     local waveText = waveGui.TextLabel.Text
@@ -196,7 +208,6 @@ local function sairDGNaOnda(ondaDesejada, modo)
                     end
                 end
                 
-                -- Método alternativo: verificar por atributo de onda
                 local waveAttr = player:GetAttribute("CurrentWave") or player:GetAttribute("Wave")
                 if waveAttr and type(waveAttr) == "number" then
                     ondaAtual = waveAttr
@@ -204,22 +215,22 @@ local function sairDGNaOnda(ondaDesejada, modo)
             end)
         end
         
-        -- Se atingiu a onda desejada, teleporta para fora da DG
         if ondaAtual >= ondaDesejada then
-            -- Teleporta para uma posição segura fora da DG (Worlds)
             local char = player.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
-                local spawnLocation = CFrame.new(0, 50, 0) -- Posição alta para evitar dano
-                -- Procura por uma localização de spawn nos mundos
+                -- Teleporta para uma posição segura e força a morte
+                local spawnPos = CFrame.new(0, 500, 0) -- Bem alto para evitar dano
                 pcall(function()
                     local worldsFolder = game:GetService("Workspace"):FindFirstChild("Worlds")
                     if worldsFolder then
-                        spawnLocation = worldsFolder:GetPivot() + Vector3.new(0, 100, 0)
+                        spawnPos = worldsFolder:GetPivot() + Vector3.new(0, 100, 0)
                     end
                 end)
-                char.HumanoidRootPart.CFrame = spawnLocation
+                char.HumanoidRootPart.CFrame = spawnPos
                 task.wait(0.5)
-                char.Humanoid.Health = 0 -- Mata o personagem para sair completamente se necessário
+                if char:FindFirstChild("Humanoid") then
+                    char.Humanoid.Health = 0
+                end
             end
         end
     end)
@@ -237,10 +248,7 @@ local ii = Y.Dropdown({
     Callback = function(Value)
         getgenv().starname = Value
     end,
-    Options = {"World1",
-"World2",
-"World3",
-"World4"}
+    Options = {"World1", "World2", "World3", "World4"}
 })
 
 Y.Toggle({
@@ -272,10 +280,7 @@ Y.Toggle({
     Enabled = false
 })
 
-
-
-
-local ii = Y.Dropdown({
+local mobDropdown = Y.Dropdown({
     Text = "Select Mob",
     Callback = function(Value)
         getgenv().mobname = Value
@@ -407,7 +412,6 @@ M.Toggle({
     Enabled = false
 })
 
-
 M.Toggle({
     Text = "Auto Mob Titan",
     Callback = function(Value)
@@ -428,10 +432,8 @@ M.Toggle({
     Enabled = false
 })
 
--- NOVOS ELEMENTOS DA UI PARA SAIR DA DG EM ONDA ESPECÍFICA
-M.Label({
-    Text = "Sair da DG na Onda:"
-})
+-- Novos controles para sair na onda
+M.Label({ Text = "Sair da DG na Onda:" })
 
 local waveSlider = M.Slider({
     Text = "Onda para Sair",
@@ -475,13 +477,13 @@ Y.Button({
                 end
             end
         end
-        ii:SetOptions(NPCS)
+        mobDropdown:SetOptions(NPCS)
     end
 })
 
 local gachaOptions = {"World1", "World2", "World3", "World4"}
 
-local i = G.Dropdown({
+local gachaDropdown = G.Dropdown({
     Text = "Select Gacha",
     Callback = function(Value)
         getgenv().gachaname = Value
@@ -537,8 +539,6 @@ G.Toggle({
     Enabled = false
 })
 
-
-
 Z.Slider({
     Text = "WalkSpeed",
     Callback = function(Value)
@@ -553,13 +553,11 @@ Z.Toggle({
     Text = "Toggle WalkSpeed",
     Callback = function(Value)
         _G.WSToggle = Value
-
         task.spawn(function()
             while _G.WSToggle do 
                 task.wait()
                 local char = game.Players.LocalPlayer.Character
                 local hum = char and char:FindFirstChild("Humanoid")
-
                 if hum then
                     hum.WalkSpeed = getgenv().WSValue or 50
                 end
