@@ -1,375 +1,570 @@
--- Anime Eternal 1.0 - Auto Farm System (Reconstruído)
--- by AI_Hub
-
-local Players = game:GetService("Players")
-local PathfindingService = game:GetService("PathfindingService")
-local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local StarterGui = game:GetService("StarterGui")
-local VirtualUser = game:GetService("VirtualUser")
-local CoreGui = game:GetService("CoreGui")
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local LocalPlayer = Players.LocalPlayer
-
--- Carregar biblioteca Fluent
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
-local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
-local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
-
--- Variáveis de controle do Auto Farm
-local farmActive = false
-local selectedEnemies = {}
-local farmMethod = "Walk To"
-local attackCooldown = 0.5
-local currentTarget = nil
-local farmConnection = nil
-local enemyList = {}  -- Lista de inimigos disponíveis
-
--- Anti-AFK
-LocalPlayer.Idled:Connect(function()
-    VirtualUser:Button2Down(Vector2.new(0,0), CFrame.new(0,10,0))
-    task.wait(1)
-    VirtualUser:Button2Up(Vector2.new(0,0), CFrame.new(0,10,0))
-end)
-
--- Função para encontrar inimigos no jogo
-local function FindEnemies()
-    local enemies = {}
-    -- Procura por modelos com Humanoid que não são o jogador
-    for _, obj in pairs(Workspace:GetDescendants()) do
-        if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart") then
-            local humanoid = obj:FindFirstChild("Humanoid")
-            if humanoid and humanoid.Health > 0 and obj.Name ~= LocalPlayer.Name then
-                -- Evita duplicatas e jogadores
-                if not Players:GetPlayerFromCharacter(obj) then
-                    table.insert(enemies, obj.Name)
-                end
-            end
-        end
-    end
-    -- Remove duplicatas
-    local uniqueEnemies = {}
-    for _, name in ipairs(enemies) do
-        if not table.find(uniqueEnemies, name) then
-            table.insert(uniqueEnemies, name)
-        end
-    end
-    return uniqueEnemies
-end
-
--- Função para encontrar um inimigo específico pelo nome
-local function FindEnemyByName(enemyName)
-    for _, obj in pairs(Workspace:GetDescendants()) do
-        if obj:IsA("Model") and obj.Name == enemyName and obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart") then
-            local humanoid = obj:FindFirstChild("Humanoid")
-            if humanoid and humanoid.Health > 0 then
-                return obj
-            end
-        end
-    end
-    return nil
-end
-
--- Função para atacar o inimigo (simulação de clique)
-local function AttackEnemy()
-    -- Tenta encontrar um Remote de ataque (comum em jogos)
-    local attackRemote = ReplicatedStorage:FindFirstChild("Attack") or 
-                        ReplicatedStorage:FindFirstChild("Damage") or
-                        ReplicatedStorage:FindFirstChild("Hit") or
-                        ReplicatedStorage:FindFirstChild("Events"):FindFirstChild("Damage")
-    
-    if attackRemote then
-        attackRemote:FireServer()
-    else
-        -- Simulação de clique como fallback
-        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-        task.wait(0.1)
-        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-    end
-end
-
--- Função principal do Auto Farm
-local function StartAutoFarm()
-    if farmConnection then farmConnection:Disconnect() end
-    
-    farmConnection = RunService.Heartbeat:Connect(function()
-        if not farmActive or #selectedEnemies == 0 then return end
-        if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
-        
-        local character = LocalPlayer.Character
-        local humanoid = character:FindFirstChild("Humanoid")
-        local rootPart = character:FindFirstChild("HumanoidRootPart")
-        
-        if not humanoid or not rootPart then return end
-        
-        -- Procura o próximo alvo vivo
-        local target = nil
-        for _, enemyName in ipairs(selectedEnemies) do
-            local potentialTarget = FindEnemyByName(enemyName)
-            if potentialTarget then
-                target = potentialTarget
-                break
-            end
-        end
-        
-        if not target then return end
-        
-        currentTarget = target
-        local targetRoot = target:FindFirstChild("HumanoidRootPart")
-        local targetHumanoid = target:FindFirstChild("Humanoid")
-        
-        if not targetRoot or not targetHumanoid then return end
-        
-        -- Verifica distância até o alvo
-        local distance = (rootPart.Position - targetRoot.Position).Magnitude
-        
-        if farmMethod == "Teleport" then
-            -- Teleporta para o inimigo
-            rootPart.CFrame = targetRoot.CFrame * CFrame.new(0, 5, 0)
-            AttackEnemy()
-        else
-            -- Walk To - usa pathfinding
-            if distance > 10 then
-                -- Anda até o inimigo
-                local path = PathfindingService:CreatePath()
-                path:ComputeAsync(rootPart.Position, targetRoot.Position)
-                
-                if path.Status == Enum.PathStatus.Success then
-                    local waypoints = path:GetWaypoints()
-                    for _, waypoint in ipairs(waypoints) do
-                        if not farmActive or not target or targetHumanoid.Health <= 0 then break end
-                        humanoid:MoveTo(waypoint.Position)
-                        humanoid.MoveToFinished:Wait()
+getgenv().BridgeNetWorld1ID = getgenv().BridgeNetWorld1ID or "{"
+getgenv().BridgeNetWorld4ID = getgenv().BridgeNetWorld4ID or "&"
+getgenv().BridgeNetStarID = getgenv().BridgeNetStarID or "a"
+if not getgenv().BridgeNetHookLoaded then
+    getgenv().BridgeNetHookLoaded = true
+    local oldNamecall
+    oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+        local method = getnamecallmethod()
+        local args = {...}
+        if self.Name == "dataRemoteEvent" and method == "FireServer" then
+            if type(args[1]) == "table" and args[1][1] and args[1][1]["__BridgeTuplePayload__"] then
+                local payload = args[1][1]["Payload"]
+                local liveID = args[1][2]
+                if payload and liveID then
+                    if payload[1] == "Create" then
+                        if payload[2] == "World1" and liveID ~= getgenv().BridgeNetWorld1ID then
+                            getgenv().BridgeNetWorld1ID = liveID
+                        elseif payload[2] == "World4" and liveID ~= getgenv().BridgeNetWorld4ID then
+                            getgenv().BridgeNetWorld4ID = liveID
+                        end
+                    elseif payload[1] == getgenv().starname and liveID ~= getgenv().BridgeNetStarID then
+                        getgenv().BridgeNetStarID = liveID
                     end
                 end
-            elseif distance <= 15 then
-                -- Perto o suficiente para atacar
-                humanoid:MoveTo(rootPart.Position) -- Para de andar
-                AttackEnemy()
             end
         end
+        return oldNamecall(self, ...)
+    end)
+end
+local NPCS = {}
+
+for i, v in pairs(game:GetService("Workspace").Worlds:GetDescendants()) do
+    if v:IsA("Model") and v.Parent.Name == "Enemies" then
+        if not table.find(NPCS, tostring(v)) then
+            table.insert(NPCS, tostring(v))
+        end
+    end
+end
+
+local Material = loadstring(game:HttpGet("https://raw.githubusercontent.com/Kinlei/MaterialLua/master/Module.lua"))()
+
+local X = Material.Load({
+    Title = "Voxle",
+    Style = 2,
+    SizeX = 300,
+    SizeY = 350,
+    Theme = "Light",
+    ColorOverrides = {
+        MainFrame = Color3.fromRGB(0,0,0),
+        Toggle = Color3.fromRGB(124,37,255),
+        ToggleAccent = Color3.fromRGB(255,255,255), 
+        Dropdown = Color3.fromRGB(124,37,255),
+        DropdownAccent = Color3.fromRGB(255,255,255),
+        Slider = Color3.fromRGB(124,37,255),
+        SliderAccent = Color3.fromRGB(255,255,255),
+        NavBarAccent = Color3.fromRGB(0,0,0),
+        Content = Color3.fromRGB(0,0,0),
+    }
+})
+
+local Y = X.New({Title = "Main"})
+local M = X.New({Title = "Modes"})
+local G = X.New({Title = "Gacha"})
+local Z = X.New({Title = "Misc"})
+local Cred = X.New({Title = "Credits"})
+
+local function getNPC()
+    local dist, thing = math.huge, nil
+    local char = game.Players.LocalPlayer.Character
+    if not (char and char:FindFirstChild("HumanoidRootPart")) then 
+        return nil 
+    end
+    local myPos = char.HumanoidRootPart.Position
+    
+    for _, v in ipairs(game:GetService("Workspace").Worlds:GetDescendants()) do
+        local matchesDropdown = (getgenv().mobname == nil or v.Name == getgenv().mobname)
         
-        -- Pequena pausa entre ataques
-        task.wait(attackCooldown)
+        if v:IsA("Model") and v.Parent and v.Parent.Name == "Enemies" and matchesDropdown and v:GetAttribute("EnemyDead") == false then
+            local hrp = v:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local mag = (myPos - hrp.Position).Magnitude
+                if mag < dist then
+                    dist = mag
+                    thing = v   
+                end
+            end
+        end
+    end
+    return thing
+end
+
+local function getNPCTrial()
+    local dist, thing = math.huge, nil
+    local char = game.Players.LocalPlayer.Character
+    if not (char and char:FindFirstChild("HumanoidRootPart")) then 
+        return nil 
+    end
+    local myPos = char.HumanoidRootPart.Position
+
+    pcall(function()
+        local enemyFolder = game:GetService("Workspace").TimeTrialArenas.Easy.Enemies
+        for _, v in ipairs(enemyFolder:GetChildren()) do
+            if v:IsA("Model") and v:GetAttribute("EnemyDead") ~= true then
+                local hrp = v:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local mag = (myPos - hrp.Position).Magnitude
+                    if mag < dist then 
+                        dist = mag 
+                        thing = v 
+                    end
+                end
+            end
+        end
+    end)
+    return thing
+end
+
+local function getNPCMode()
+    local dist, thing = math.huge, nil
+    local char = game.Players.LocalPlayer.Character
+    if not (char and char:FindFirstChild("HumanoidRootPart")) then 
+        return nil 
+    end
+    local myPos = char.HumanoidRootPart.Position
+
+    pcall(function()
+        local enemyFolder = game:GetService("Workspace").DefenseArenas.World4.Enemies
+        for _, v in ipairs(enemyFolder:GetChildren()) do
+            if v:IsA("Model") and v:GetAttribute("EnemyDead") ~= true then
+                local hrp = v:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local mag = (myPos - hrp.Position).Magnitude
+                    if mag < dist then 
+                        dist = mag 
+                        thing = v 
+                    end
+                end
+            end
+        end
+    end)
+    return thing
+end
+
+
+local function getNPCNinja()
+    local dist, thing = math.huge, nil
+    local char = game.Players.LocalPlayer.Character
+    if not (char and char:FindFirstChild("HumanoidRootPart")) then 
+        return nil 
+    end
+    local myPos = char.HumanoidRootPart.Position
+
+    pcall(function()
+        local enemyFolder = game:GetService("Workspace").RaidArenas.World1.Enemies
+        for _, v in ipairs(enemyFolder:GetChildren()) do
+            if v:IsA("Model") and v:GetAttribute("EnemyDead") ~= true then
+                local hrp = v:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local mag = (myPos - hrp.Position).Magnitude
+                    if mag < dist then 
+                        dist = mag 
+                        thing = v 
+                    end
+                end
+            end
+        end
+    end)
+    return thing
+end
+
+-- NOVA FUNÇÃO: Sair da DG em onda específica
+local function sairDGNaOnda(ondaDesejada, modo)
+    task.spawn(function()
+        local player = game:GetService("Players").LocalPlayer
+        local ondaAtual = 0
+        
+        -- Aguarda estar dentro da DG
+        repeat task.wait(0.5) until player:GetAttribute("VisibilityContext") == modo
+        
+        -- Monitora a onda atual
+        while ondaAtual < ondaDesejada do
+            task.wait(0.5)
+            pcall(function()
+                -- Tenta obter o número da onda atual (pode variar conforme o jogo)
+                if player:GetAttribute("VisibilityContext") ~= modo then
+                    break -- Saiu da DG antes do esperado
+                end
+                
+                -- Verifica a onda através de diferentes métodos possíveis
+                local waveGui = player.PlayerGui:FindFirstChild("Wave") or player.PlayerGui:FindFirstChild("WaveDisplay")
+                if waveGui and waveGui:FindFirstChild("TextLabel") then
+                    local waveText = waveGui.TextLabel.Text
+                    local waveNumber = tonumber(string.match(waveText, "%d+"))
+                    if waveNumber then
+                        ondaAtual = waveNumber
+                    end
+                end
+                
+                -- Método alternativo: verificar por atributo de onda
+                local waveAttr = player:GetAttribute("CurrentWave") or player:GetAttribute("Wave")
+                if waveAttr and type(waveAttr) == "number" then
+                    ondaAtual = waveAttr
+                end
+            end)
+        end
+        
+        -- Se atingiu a onda desejada, teleporta para fora da DG
+        if ondaAtual >= ondaDesejada then
+            -- Teleporta para uma posição segura fora da DG (Worlds)
+            local char = player.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local spawnLocation = CFrame.new(0, 50, 0) -- Posição alta para evitar dano
+                -- Procura por uma localização de spawn nos mundos
+                pcall(function()
+                    local worldsFolder = game:GetService("Workspace"):FindFirstChild("Worlds")
+                    if worldsFolder then
+                        spawnLocation = worldsFolder:GetPivot() + Vector3.new(0, 100, 0)
+                    end
+                end)
+                char.HumanoidRootPart.CFrame = spawnLocation
+                task.wait(0.5)
+                char.Humanoid.Health = 0 -- Mata o personagem para sair completamente se necessário
+            end
+        end
     end)
 end
 
--- Criar interface
-local Window = Fluent:CreateWindow({
-    Title = "Anime Eternal 1.0 by AI_Hub",
-    SubTitle = "Auto Farm System",
-    TabWidth = 160,
-    Size = UDim2.fromOffset(580, 460),
-    Acrylic = false,
-    Theme = "Dark",
-    MinimizeKey = Enum.KeyCode.K
-})
-
--- Aba de Auto Farm
-local FarmTab = Window:AddTab({
-    Icon = "sword",
-    Title = "Auto Farm"
-})
-
--- Dropdown de inimigos
-local EnemyDropdown = FarmTab:AddDropdown("EnemyDropdown", {
-    Title = "Select Enemies",
-    Description = "Choose enemies to auto farm",
-    Values = {},
-    Multi = true,
-    Default = {}
-})
-
--- Botão de refresh
-FarmTab:AddButton({
-    Title = "Refresh Enemies",
-    Description = "Scan for available enemies",
+Cred.Button({
+    Text = "Copy Discord",
     Callback = function()
-        local enemies = FindEnemies()
-        if #enemies > 0 then
-            EnemyDropdown:SetValues(enemies)
-            Fluent:Notify({
-                Title = "Enemies Found",
-                Content = string.format("Found %d enemies", #enemies),
-                Duration = 3
-            })
-        else
-            Fluent:Notify({
-                Title = "Warning",
-                Content = "No enemies found in workspace",
-                Duration = 3
-            })
+        setclipboard("https://discord.gg/gcHGgT3nfp")
+    end,
+})
+
+local ii = Y.Dropdown({
+    Text = "Select Star",
+    Callback = function(Value)
+        getgenv().starname = Value
+    end,
+    Options = {"World1",
+"World2",
+"World3",
+"World4"}
+})
+
+Y.Toggle({
+    Text = "Auto Star",
+    Callback = function(Value)
+        _G.AutoStar = Value
+        task.spawn(function()
+            while _G.AutoStar do 
+                task.wait(0.1)
+                pcall(function()
+                    local args = {
+                        [1] = {
+                            [1] = {
+                                ["__BridgeTuplePayload__"] = true,
+                                ["Payload"] = {
+                                    [1] = getgenv().starname,
+                                    [2] = {},
+                                    ["n"] = 2
+                                }
+                            },
+                            [2] = getgenv().BridgeNetStarID
+                        }
+                    }
+                    game:GetService("ReplicatedStorage"):WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent"):FireServer(unpack(args))
+                end)
+            end
+        end)
+    end,
+    Enabled = false
+})
+
+
+
+
+local ii = Y.Dropdown({
+    Text = "Select Mob",
+    Callback = function(Value)
+        getgenv().mobname = Value
+    end,
+    Options = typeof(NPCS) == "table" and NPCS or {}
+})
+
+Y.Toggle({
+    Text = "AutoMob",
+    Callback = function(Value)
+        _G.AutoMob = Value
+        task.spawn(function()
+            while _G.AutoMob do 
+                task.wait()
+                pcall(function()
+                    local target = getNPC()
+                    local char = game.Players.LocalPlayer.Character
+                    if target and char and char:FindFirstChild("HumanoidRootPart") then
+                        char.HumanoidRootPart.CFrame = target:GetPivot() * CFrame.new(0, 0, 3)
+                    end
+                end)
+            end
+        end)
+    end,
+    Enabled = false
+})
+
+M.Toggle({
+    Text = "Auto Mob Trial",
+    Callback = function(Value)
+        _G.AutoMobT = Value
+        task.spawn(function()
+            while _G.AutoMobT do 
+                task.wait()
+                pcall(function()
+                    local target = getNPCTrial()
+                    local char = game.Players.LocalPlayer.Character
+                    if target and char and char:FindFirstChild("HumanoidRootPart") then
+                        char.HumanoidRootPart.CFrame = target:GetPivot() * CFrame.new(0, 0, 3)
+                    end
+                end)
+            end
+        end)
+    end,
+    Enabled = false
+})
+
+M.Toggle({
+    Text = "Auto Ninja",
+    Callback = function(Value)
+        _G.AutoMode1 = Value
+        task.spawn(function()
+            while _G.AutoMode1 do  
+                pcall(function()
+                    task.wait(5)
+                    local player = game:GetService("Players").LocalPlayer
+                    if player:GetAttribute("VisibilityContext") ~= "Raid:World1" then
+                        local args = {
+                            [1] = {
+                                [1] = {
+                                    ["__BridgeTuplePayload__"] = true,
+                                    ["Payload"] = {
+                                        [1] = "Create",
+                                        [2] = "World1",
+                                        ["n"] = 2
+                                    }
+                                },
+                                [2] = getgenv().BridgeNetWorld1ID
+                            }
+                        }
+                        game:GetService("ReplicatedStorage"):WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent"):FireServer(unpack(args))
+                    end
+                end) 
+            end
+        end)
+    end,
+    Enabled = false
+})
+
+M.Toggle({
+    Text = "Auto Mob Ninja",
+    Callback = function(Value)
+        _G.AutoMob1 = Value
+        task.spawn(function()
+            while _G.AutoMob1 do 
+                task.wait()
+                pcall(function()
+                    local target = getNPCNinja()
+                    local char = game.Players.LocalPlayer.Character
+                    if target and char and char:FindFirstChild("HumanoidRootPart") then
+                        char.HumanoidRootPart.CFrame = target:GetPivot() * CFrame.new(0, 0, 3)
+                    end
+                end)
+            end
+        end)
+    end,
+    Enabled = false
+})
+
+M.Toggle({
+    Text = "Auto Titan",
+    Callback = function(Value)
+        _G.AutoMode = Value
+        task.spawn(function()
+            while _G.AutoMode do  
+                pcall(function()
+                    task.wait(5)
+                    local player = game:GetService("Players").LocalPlayer
+                    if player:GetAttribute("VisibilityContext") ~= "Defense:World4" then
+                        local args = {
+                            [1] = {
+                                [1] = {
+                                    ["__BridgeTuplePayload__"] = true,
+                                    ["Payload"] = {
+                                        [1] = "Create",
+                                        [2] = "World4",
+                                        ["n"] = 2
+                                    }
+                                },
+                                [2] = getgenv().BridgeNetWorld4ID
+                            }
+                        }
+                        game:GetService("ReplicatedStorage"):WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent"):FireServer(unpack(args))
+                    end
+                end) 
+            end
+        end)
+    end,
+    Enabled = false
+})
+
+
+M.Toggle({
+    Text = "Auto Mob Titan",
+    Callback = function(Value)
+        _G.AutoMobMode = Value
+        task.spawn(function()
+            while _G.AutoMobMode do 
+                task.wait()
+                pcall(function()
+                    local target = getNPCMode()
+                    local char = game.Players.LocalPlayer.Character
+                    if target and char and char:FindFirstChild("HumanoidRootPart") then
+                        char.HumanoidRootPart.CFrame = target:GetPivot() * CFrame.new(0, 0, 3)
+                    end
+                end)
+            end
+        end)
+    end,
+    Enabled = false
+})
+
+-- NOVOS ELEMENTOS DA UI PARA SAIR DA DG EM ONDA ESPECÍFICA
+M.Label({
+    Text = "Sair da DG na Onda:"
+})
+
+local waveSlider = M.Slider({
+    Text = "Onda para Sair",
+    Callback = function(Value)
+        getgenv().OndaParaSair = Value
+    end,
+    Min = 1,
+    Max = 20,
+    Def = 5
+})
+
+local modeDropdown = M.Dropdown({
+    Text = "Selecionar Modo",
+    Callback = function(Value)
+        getgenv().ModoSelecionado = Value
+    end,
+    Options = {"Raid:World1", "Defense:World4"}
+})
+
+M.Toggle({
+    Text = "Auto Sair na Onda",
+    Callback = function(Value)
+        _G.AutoSairOnda = Value
+        if Value then
+            local onda = getgenv().OndaParaSair or 5
+            local modo = getgenv().ModoSelecionado or "Defense:World4"
+            sairDGNaOnda(onda, modo)
         end
+    end,
+    Enabled = false
+})
+
+Y.Button({
+    Text = "Refresh Enemies", 
+    Callback = function()
+        table.clear(NPCS)
+        for i, v in pairs(game:GetService("Workspace").Worlds:GetDescendants()) do
+            if v:IsA("Model") and v.Parent.Name == "Enemies" then
+                if not table.find(NPCS, tostring(v)) then
+                    table.insert(NPCS, tostring(v))
+                end
+            end
+        end
+        ii:SetOptions(NPCS)
     end
 })
 
--- Dropdown de método de farm
-local MethodDropdown = FarmTab:AddDropdown("FarmMethod", {
-    Title = "Farm Method",
-    Description = "Choose how to reach enemies",
-    Values = {"Walk To", "Teleport"},
-    Multi = false,
-    Default = "Walk To"
+local gachaOptions = {"World1", "World2", "World3", "World4"}
+
+local i = G.Dropdown({
+    Text = "Select Gacha",
+    Callback = function(Value)
+        getgenv().gachaname = Value
+    end,
+    Options = gachaOptions
 })
 
--- Toggle de Auto Click
-local ClickToggle = FarmTab:AddToggle("AutoClick", {
-    Title = "Auto Click",
-    Description = "Automatically click when near enemies",
-    Default = false
+G.Toggle({
+    Text = "Auto Gacha",
+    Callback = function(Value)
+        _G.AutoG = Value
+        task.spawn(function()
+            while _G.AutoG do 
+                task.wait(0.1)
+                pcall(function()
+                    local args = {
+                        [1] = {
+                            [1] = getgenv().gachaname,
+                            [2] = "L"
+                        }
+                    }
+                    game:GetService("ReplicatedStorage"):WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent"):FireServer(unpack(args))
+                end)
+            end
+        end)
+    end,
+    Enabled = false
 })
 
-ClickToggle:OnChanged(function(value)
-    attackCooldown = value and 0.2 or 0.5
-end)
-
--- Toggle principal de Auto Farm
-local FarmToggle = FarmTab:AddToggle("AutoFarm", {
-    Title = "Auto Farm",
-    Description = "Enable auto farming",
-    Default = false
+G.Toggle({
+    Text = "Roll Every Gacha",
+    Callback = function(Value)
+        _G.AutoG1 = Value
+        task.spawn(function()
+            while _G.AutoG1 do 
+                for _, worldName in ipairs(gachaOptions) do
+                    if not _G.AutoG1 then break end 
+                    pcall(function()
+                        local args = {
+                            [1] = {
+                                [1] = worldName,
+                                [2] = "L"
+                            }
+                        }
+                        game:GetService("ReplicatedStorage"):WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent"):FireServer(unpack(args))
+                    end)
+                    task.wait(0.05) 
+                end
+                task.wait(0.1)
+            end
+        end)
+    end,
+    Enabled = false
 })
 
-FarmToggle:OnChanged(function(value)
-    farmActive = value
-    
-    if value then
-        -- Verifica se há inimigos selecionados
-        if #selectedEnemies == 0 then
-            Fluent:Notify({
-                Title = "Error",
-                Content = "Select at least one enemy first",
-                Duration = 3
-            })
-            FarmToggle:SetValue(false)
-            return
-        end
-        
-        -- Inicia o farm
-        StartAutoFarm()
-        Fluent:Notify({
-            Title = "Auto Farm",
-            Content = "Auto Farm started",
-            Duration = 3
-        })
-    else
-        -- Para o farm
-        if farmConnection then
-            farmConnection:Disconnect()
-            farmConnection = nil
-        end
-        currentTarget = nil
-    end
-end)
 
--- Atualiza inimigos selecionados
-EnemyDropdown:OnChanged(function(values)
-    selectedEnemies = values
-end)
 
--- Atualiza método de farm
-MethodDropdown:OnChanged(function(value)
-    farmMethod = value
-end)
-
--- Aba de Status (Stats)
-local StatsTab = Window:AddTab({
-    Icon = "trending-up",
-    Title = "Stats"
+Z.Slider({
+    Text = "WalkSpeed",
+    Callback = function(Value)
+        getgenv().WSValue = Value
+    end,
+    Min = 16,
+    Max = 500,
+    Def = 50
 })
 
--- Toggles de status
-StatsTab:AddToggle("AutoDamage", {
-    Title = "Auto Damage",
-    Description = "Auto assign points to Damage",
-    Default = false
-})
+Z.Toggle({
+    Text = "Toggle WalkSpeed",
+    Callback = function(Value)
+        _G.WSToggle = Value
 
-StatsTab:AddToggle("AutoEnergy", {
-    Title = "Auto Energy",
-    Description = "Auto assign points to Energy",
-    Default = false
-})
+        task.spawn(function()
+            while _G.WSToggle do 
+                task.wait()
+                local char = game.Players.LocalPlayer.Character
+                local hum = char and char:FindFirstChild("Humanoid")
 
-StatsTab:AddToggle("AutoCoins", {
-    Title = "Auto Coins",
-    Description = "Auto assign points to Coins",
-    Default = false
-})
-
--- Aba de Misc
-local MiscTab = Window:AddTab({
-    Icon = "help-circle",
-    Title = "Misc"
-})
-
--- Dropdown de delay de teleporte
-MiscTab:AddDropdown("TeleportDelay", {
-    Title = "Teleport Delay",
-    Description = "Set delay between teleports",
-    Values = {"0.05", "0.1", "0.5", "1", "2"},
-    Multi = false,
-    Default = "0.1"
-})
-
--- Aba de Settings
-local SettingsTab = Window:AddTab({
-    Icon = "settings",
-    Title = "Settings"
-})
-
--- Configurar SaveManager
-SaveManager:SetLibrary(Fluent)
-InterfaceManager:SetLibrary(Fluent)
-SaveManager:SetFolder("AI_Hub/AnimeEternal")
-InterfaceManager:SetFolder("AI_Hub/AnimeEternal")
-
--- Criar seções de configuração
-SaveManager:BuildConfigSection(SettingsTab)
-InterfaceManager:BuildInterfaceSection(SettingsTab)
-
--- Carregar configuração autoload
-SaveManager:LoadAutoloadConfig()
-
--- Botão flutuante AI
-local AIButtonGui = Instance.new("ScreenGui")
-AIButtonGui.Name = "AI_Button_GUI"
-AIButtonGui.ResetOnSpawn = false
-AIButtonGui.Parent = CoreGui
-
-local AIFrame = Instance.new("Frame")
-AIFrame.Size = UDim2.new(0, 60, 0, 30)
-AIFrame.Position = UDim2.new(0, 100, 0.5, -50)
-AIFrame.BackgroundTransparency = 1
-AIFrame.Active = true
-AIFrame.Draggable = true
-AIFrame.Parent = AIButtonGui
-
-local AIButton = Instance.new("TextButton")
-AIButton.Name = "AIButton"
-AIButton.Size = UDim2.new(1, 0, 1, 0)
-AIButton.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-AIButton.BorderSizePixel = 0
-AIButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-AIButton.Text = "AI"
-AIButton.Font = Enum.Font.GothamBold
-AIButton.TextSize = 18
-AIButton.AutoButtonColor = false
-AIButton.Parent = AIFrame
-
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 8)
-UICorner.Parent = AIButton
-
--- Botão para minimizar/maximizar a GUI
-AIButton.MouseButton1Click:Connect(function()
-    Window:Toggle()
-end)
-
--- Notificação de carregamento
-Fluent:Notify({
-    Title = "Anime Eternal",
-    Content = "Script loaded successfully!",
-    Duration = 5
+                if hum then
+                    hum.WalkSpeed = getgenv().WSValue or 50
+                end
+            end
+        end)
+    end,
+    Enabled = false
 })
