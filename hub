@@ -182,54 +182,181 @@ local function getNPCNinja()
     return thing
 end
 
--- Função para sair da DG quando atingir determinada onda
+-- Função para encontrar e clicar no botão SAIR
+local function encontrarBotaoSair()
+    local player = game:GetService("Players").LocalPlayer
+    local playerGui = player:FindFirstChild("PlayerGui")
+    if not playerGui then return nil end
+    
+    -- Procura em toda a interface do jogador por um botão vermelho escrito "SAIR"
+    for _, obj in ipairs(playerGui:GetDescendants()) do
+        if obj:IsA("TextButton") or obj:IsA("ImageButton") then
+            -- Verifica se é vermelho e tem texto "SAIR"
+            local text = ""
+            if obj:IsA("TextButton") then
+                text = obj.Text:upper()
+            end
+            
+            -- Verifica cor de fundo (vermelho)
+            local isRed = false
+            pcall(function()
+                if obj:IsA("TextButton") then
+                    local bgColor = obj.BackgroundColor3
+                    isRed = (bgColor.R > 0.7 and bgColor.G < 0.3 and bgColor.B < 0.3)
+                elseif obj:IsA("ImageButton") then
+                    local imgColor = obj.ImageColor3
+                    isRed = (imgColor.R > 0.7 and imgColor.G < 0.3 and imgColor.B < 0.3)
+                end
+            end)
+            
+            -- Verifica se contém "SAIR" no texto ou nome
+            local isSair = (text == "SAIR" or text:find("SAIR") or obj.Name:upper():find("SAIR"))
+            
+            if isSair and isRed then
+                return obj
+            end
+        end
+    end
+    
+    -- Busca alternativa: procura por qualquer botão com texto "SAIR" independente da cor
+    for _, obj in ipairs(playerGui:GetDescendants()) do
+        if obj:IsA("TextButton") then
+            if obj.Text:upper():find("SAIR") then
+                return obj
+            end
+        end
+        if obj:IsA("ImageButton") then
+            if obj.Name:upper():find("SAIR") then
+                return obj
+            end
+        end
+    end
+    
+    return nil
+end
+
+-- Função para obter número da onda atual
+local function getOndaAtual()
+    local player = game:GetService("Players").LocalPlayer
+    local playerGui = player:FindFirstChild("PlayerGui")
+    if not playerGui then return 0 end
+    
+    -- Método 1: Procurar por texto de onda na UI
+    for _, obj in ipairs(playerGui:GetDescendants()) do
+        if obj:IsA("TextLabel") or obj:IsA("TextBox") then
+            local text = ""
+            pcall(function() text = obj.Text end)
+            
+            -- Padrões comuns: "Wave: 5", "Onda 5/100", "5/100"
+            local patterns = {
+                "Wave:%s*(%d+)",
+                "Onda:%s*(%d+)",
+                "(%d+)%s*/%s*%d+",
+                "Wave%s*(%d+)"
+            }
+            
+            for _, pattern in ipairs(patterns) do
+                local waveNum = string.match(text, pattern)
+                if waveNum then
+                    local num = tonumber(waveNum)
+                    if num then
+                        return num
+                    end
+                end
+            end
+        end
+    end
+    
+    -- Método 2: Atributos do jogador
+    local waveAttr = player:GetAttribute("CurrentWave") or player:GetAttribute("Wave")
+    if waveAttr and type(waveAttr) == "number" then
+        return waveAttr
+    end
+    
+    return 0
+end
+
+-- Função principal para sair da DG na onda específica
 local function sairDGNaOnda(ondaDesejada, modo)
     task.spawn(function()
         local player = game:GetService("Players").LocalPlayer
         local ondaAtual = 0
+        local saiu = false
         
         -- Aguarda entrar na DG
-        repeat task.wait(0.5) until player:GetAttribute("VisibilityContext") == modo
+        repeat 
+            task.wait(0.5) 
+            if not _G.AutoSairOnda then return end -- Cancela se toggle foi desligado
+        until player:GetAttribute("VisibilityContext") == modo
         
-        while ondaAtual < ondaDesejada do
-            task.wait(0.5)
+        while ondaAtual < ondaDesejada and not saiu do
+            task.wait(0.3)
+            
+            -- Verifica se ainda está ativo
+            if not _G.AutoSairOnda then return end
+            
             pcall(function()
+                -- Verifica se ainda está na DG
                 if player:GetAttribute("VisibilityContext") ~= modo then
-                    return -- já saiu
+                    saiu = true
+                    return
                 end
                 
-                -- Tenta capturar o número da onda (ajuste conforme o jogo)
-                local waveGui = player.PlayerGui:FindFirstChild("Wave") or player.PlayerGui:FindFirstChild("WaveDisplay")
-                if waveGui and waveGui:FindFirstChild("TextLabel") then
-                    local waveText = waveGui.TextLabel.Text
-                    local waveNumber = tonumber(string.match(waveText, "%d+"))
-                    if waveNumber then
-                        ondaAtual = waveNumber
-                    end
-                end
-                
-                local waveAttr = player:GetAttribute("CurrentWave") or player:GetAttribute("Wave")
-                if waveAttr and type(waveAttr) == "number" then
-                    ondaAtual = waveAttr
-                end
+                -- Atualiza onda atual
+                ondaAtual = getOndaAtual()
             end)
         end
         
-        if ondaAtual >= ondaDesejada then
-            local char = player.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                -- Teleporta para uma posição segura e força a morte
-                local spawnPos = CFrame.new(0, 500, 0) -- Bem alto para evitar dano
+        -- Se atingiu a onda desejada, procura e clica no botão SAIR
+        if ondaAtual >= ondaDesejada and not saiu then
+            local tentativas = 0
+            local botaoSair = nil
+            
+            -- Tenta encontrar o botão por até 5 segundos
+            while tentativas < 50 and not botaoSair do
+                task.wait(0.1)
+                tentativas = tentativas + 1
+                botaoSair = encontrarBotaoSair()
+            end
+            
+            if botaoSair then
+                -- Clica no botão SAIR
                 pcall(function()
-                    local worldsFolder = game:GetService("Workspace"):FindFirstChild("Worlds")
-                    if worldsFolder then
-                        spawnPos = worldsFolder:GetPivot() + Vector3.new(0, 100, 0)
-                    end
+                    firesignal(botaoSair.MouseButton1Click)
+                    print("Botão SAIR clicado com sucesso na onda " .. ondaAtual)
                 end)
-                char.HumanoidRootPart.CFrame = spawnPos
-                task.wait(0.5)
-                if char:FindFirstChild("Humanoid") then
-                    char.Humanoid.Health = 0
+                
+                -- Fallback: tenta diferentes métodos de clique
+                if player:GetAttribute("VisibilityContext") == modo then
+                    task.wait(0.2)
+                    pcall(function()
+                        firesignal(botaoSair.Activated)
+                    end)
+                end
+                
+                if player:GetAttribute("VisibilityContext") == modo then
+                    task.wait(0.2)
+                    pcall(function()
+                        botaoSair:InvokeServer()
+                    end)
+                end
+            else
+                -- Se não encontrou o botão, força a saída
+                warn("Botão SAIR não encontrado! Forçando saída...")
+                local char = player.Character
+                if char and char:FindFirstChild("HumanoidRootPart") then
+                    local spawnPos = CFrame.new(0, 500, 0)
+                    pcall(function()
+                        local worldsFolder = game:GetService("Workspace"):FindFirstChild("Worlds")
+                        if worldsFolder then
+                            spawnPos = worldsFolder:GetPivot() + Vector3.new(0, 100, 0)
+                        end
+                    end)
+                    char.HumanoidRootPart.CFrame = spawnPos
+                    task.wait(0.5)
+                    if char:FindFirstChild("Humanoid") then
+                        char.Humanoid.Health = 0
+                    end
                 end
             end
         end
@@ -432,7 +559,7 @@ M.Toggle({
     Enabled = false
 })
 
--- Novos controles para sair na onda
+-- NOVOS CONTROLES PARA SAIR NA ONDA
 M.Label({ Text = "Sair da DG na Onda:" })
 
 local waveSlider = M.Slider({
@@ -441,8 +568,8 @@ local waveSlider = M.Slider({
         getgenv().OndaParaSair = Value
     end,
     Min = 1,
-    Max = 20,
-    Def = 5
+    Max = 100, -- Ajustado para 100 conforme solicitado
+    Def = 50
 })
 
 local modeDropdown = M.Dropdown({
@@ -458,7 +585,7 @@ M.Toggle({
     Callback = function(Value)
         _G.AutoSairOnda = Value
         if Value then
-            local onda = getgenv().OndaParaSair or 5
+            local onda = getgenv().OndaParaSair or 50
             local modo = getgenv().ModoSelecionado or "Defense:World4"
             sairDGNaOnda(onda, modo)
         end
