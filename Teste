@@ -56,7 +56,7 @@ local TELEPORT_DELAY = 0.35
 
 -- LISTA DE MOBS (REAL = COREANO)
 local MobStates = {
-    ["Orc Destroyer"] = {
+    ["OrcDestroyer"] = {
         enabled = false,
         label = "Orc"
     },
