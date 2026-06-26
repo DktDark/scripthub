@@ -54,94 +54,28 @@ local loopRunning = false
 local TELEPORT_OFFSET = Vector3.new(0, 10, 0)
 local TELEPORT_DELAY = 0.35
 
--- LISTA DE MOBS (REAL = COREANO)
+-- LISTA DE MOBS (ATUALIZADA COM OS IDs FORNECIDOS)
 local MobStates = {
-    ["OrcDestroyer"] = {
-        enabled = false,
-        label = "Orc"
-    },
-
-	["고블린"] = {
-        enabled = false,
-        label = "Goblin"
-    },
-
-	["파라다이스 수장"] = {
-        enabled = false,
-        label = "Boss Sakura"
-	},
-
-	["더 할루시네이션"] = {
-        enabled = false,
-        label = "Alucinação"
-    },
-
-	["다크 기사단장"] = {
-        enabled = false,
-        label = "Cavaleiro das Trevas"
-    },
-
-	["용암 골렘"] = {
-        enabled = true,
-        label = "Golem de Lava"
-    },
-	
-	["예티"] = {
-	    enabled = false,
-	    label = "Yeti"
-	},
-	
-	["나락화 수호자"] = {
-	    enabled = false,
-	    label = "Narak"
-	},
-	
-	["타이탄 아머로드"] = {
-	    enabled = false,
-	    label = "Titã"
-	},
-
-	["미라"] = {
-	    enabled = false,
-	    label = "Múmia"
-	},
-
-	["포자링"] = {
-	    enabled = false,
-	    label = "Cogumelo"
-	},
-
-	["아르카나"] = {
-	    enabled = false,
-	    label = "Boss de Gelo"
-	},
-
-	["서리 늑대"] = {
-	    enabled = false,
-	    label = "Lacaio de Gelo"
-	},
-
-	["얼어붙은 핏빛"] = {
-	    enabled = false,
-	    label = "Boss de Gelo 2"
-	},
-
--- Recursos / Minérios
-
-	["용력석"] = {
-	    enabled = false,
-	    label = "Mitico Ore"
-	},
-	
-	["마나 광물"] = {
-	    enabled = false,
-	    label = "Mana Ore"
-	},
-	
-	["순수한 마나 광석"] = {
-	    enabled = false,
-	    label = "Mana Pura"
-	},
+    ["9fc36f83-9abo-43de-967e-7ff471b5daas"] = {enabled = true, label = "Mob 1"},
+    ["de768425-ee23-4e5b-95c3-do3b8c7185da"] = {enabled = true, label = "Mob 2"},
+    ["495f8e50-d8eo-467d-bdic-31a4b12e1al4"] = {enabled = true, label = "Mob 3"},
+    ["d7a65fco-4812-4fa7-9637-3ac813a35903"] = {enabled = true, label = "Mob 4"},
+    ["807228c4-abd1-4094-b943-b6dcb2886c2e"] = {enabled = true, label = "Mob 5"},
+    ["c56a2dcd-d23c-4d79-93ff-6d3425164428"] = {enabled = true, label = "Mob 6"},
+    ["2ec38438-0eb6-453d-Bc6a-fbrbfa2ze2o7e"] = {enabled = true, label = "Mob 7"},
+    ["688d686b-8c29-40b3-9842-287d92461930"] = {enabled = true, label = "Mob 8"},
+    ["1c872535-9cfd-4795-af5b-d2e2ba87c81b"] = {enabled = true, label = "Mob 9"},
+    ["fcd783a9-61b4-4448-8cc4-97dfdeda6b17"] = {enabled = true, label = "Mob 10"},
+    ["a341bd30-60cc-4605-298a-de594da526e0"] = {enabled = true, label = "Mob 11"},
+    ["38f68bcc-676c-46db-b961-cfb707220s9b"] = {enabled = true, label = "Mob 12"},
+    ["cfalf319-3456-4c23-8a4d-eb146223ae4e"] = {enabled = true, label = "Mob 13"},
+    ["3e197d30-db67-4750-83d8-e41c3b587751"] = {enabled = true, label = "Mob 14"},
+    ["alalefaf-5f16-42e0-8221-b38511ed6b5o"] = {enabled = true, label = "Mob 15"},
+    ["92a0d7ee-de43-4997-9526-1261842f2ec4"] = {enabled = true, label = "Mob 16"},
+    ["641ef8bd-2304-4687-b6ed-cead11251c86"] = {enabled = true, label = "Mob 17"},
+    ["49ecb1c7-5608-4cfd-8929-671dos4d5foa"] = {enabled = true, label = "Mob 18"},
+    ["f171b021-c84a-42bd-be89-a47a5369afc7"] = {enabled = true, label = "Mob 19"},
+    ["cob33f8b-c2e7-47dc-b8a6-ce6b51b46513d"] = {enabled = true, label = "Mob 20"},
 }
 
 --==================================================
@@ -203,11 +137,11 @@ local function disableLock()
 end
 
 --==================================================
--- MOB
+-- MOB (MODIFICADO PARA ENCONTRAR POR ID)
 --==================================================
 
-local function isValidMob(name)
-    return MobStates[name] and MobStates[name].enabled
+local function isValidMob(id)
+    return MobStates[id] and MobStates[id].enabled
 end
 
 local function findNearestMob()
@@ -418,9 +352,9 @@ TabFarm:CreateToggle({
     end
 })
 
-for realName, data in pairs(MobStates) do
+for id, data in pairs(MobStates) do
     TabFarm:CreateToggle({
-        Name = realName .. " (" .. data.label .. ")",
+        Name = id .. " (" .. data.label .. ")",
         CurrentValue = data.enabled,
         Callback = function(v)
             data.enabled = v
@@ -547,7 +481,7 @@ TabSettings:CreateButton({
 -- Iniciar Auto TP automaticamente
 if enabled then
     task.spawn(function()
-        task.wait(1)  -- Pequeno delay para garantir que tudo carregou
+        task.wait(1)
         startLoop()
     end)
 end
@@ -555,10 +489,10 @@ end
 -- Iniciar Auto Attack + Skills automaticamente
 if AutoSkill then
     task.spawn(function()
-        task.wait(1.5)  -- Delay para garantir que o personagem carregou
+        task.wait(1.5)
         autoAttack()
         autoSkills()
     end)
 end
 
-print("✅ Hub carregado com TP original preservado")
+print("✅ Hub carregado com sistema de IDs atualizado")
