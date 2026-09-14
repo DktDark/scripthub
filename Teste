@@ -1,498 +1,335 @@
---==================================================
--- RAYFIELD HUB - AUTO TP ORIGINAL + AUTO SKILL
---==================================================
-
-local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
-
-local Window = Rayfield:CreateWindow({
-    Name = "Dark Hub",
-    LoadingTitle = "Dark Hub",
-    LoadingSubtitle = "Auto TP & Skills",
-    ConfigurationSaving = {
-        Enabled = true,
-        FolderName = "DarkHub",
-        FileName = "Config"
-    }
-})
-
-local TabFarm = Window:CreateTab("Farm", 4483362458)
-local TabCombat = Window:CreateTab("Combat", 4483362458)
-local TabSettings = Window:CreateTab("Settings", 4483362458)
-
---==================================================
--- SERVICES / PLAYER
---==================================================
-
+-- Script Auto-Farm Configurável com Suas Coordenadas para Xeno Executor
+local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
 
-local player = Players.LocalPlayer
-
-local function getCharacter()
-    return player.Character or player.CharacterAdded:Wait()
+-- Destruir interface antiga se existir
+if CoreGui:FindFirstChild("AutoFarmGUI") then
+    CoreGui.AutoFarmGUI:Destroy()
 end
 
-local function getHRP(model)
-    return model and model:FindFirstChild("HumanoidRootPart")
-end
-
-local function isAlive(model)
-    local hum = model:FindFirstChildOfClass("Humanoid")
-    return hum and hum.Health > 0
-end
-
---==================================================
--- CONFIG AUTO TP (ORIGINAL)
---==================================================
-
-local enabled = true
-local currentTarget = nil
-local loopRunning = false
-
-local TELEPORT_OFFSET = Vector3.new(0, 10, 0)
-local TELEPORT_DELAY = 0.35
-
--- LISTA DE MOBS (ATUALIZADA COM OS IDs FORNECIDOS)
-local MobStates = {
-    ["9fc36f83-9abo-43de-967e-7ff471b5daas"] = {enabled = true, label = "Mob 1"},
-    ["de768425-ee23-4e5b-95c3-do3b8c7185da"] = {enabled = true, label = "Mob 2"},
-    ["495f8e50-d8eo-467d-bdic-31a4b12e1al4"] = {enabled = true, label = "Mob 3"},
-    ["d7a65fco-4812-4fa7-9637-3ac813a35903"] = {enabled = true, label = "Mob 4"},
-    ["807228c4-abd1-4094-b943-b6dcb2886c2e"] = {enabled = true, label = "Mob 5"},
-    ["c56a2dcd-d23c-4d79-93ff-6d3425164428"] = {enabled = true, label = "Mob 6"},
-    ["2ec38438-0eb6-453d-Bc6a-fbrbfa2ze2o7e"] = {enabled = true, label = "Mob 7"},
-    ["688d686b-8c29-40b3-9842-287d92461930"] = {enabled = true, label = "Mob 8"},
-    ["1c872535-9cfd-4795-af5b-d2e2ba87c81b"] = {enabled = true, label = "Mob 9"},
-    ["fcd783a9-61b4-4448-8cc4-97dfdeda6b17"] = {enabled = true, label = "Mob 10"},
-    ["a341bd30-60cc-4605-298a-de594da526e0"] = {enabled = true, label = "Mob 11"},
-    ["38f68bcc-676c-46db-b961-cfb707220s9b"] = {enabled = true, label = "Mob 12"},
-    ["cfalf319-3456-4c23-8a4d-eb146223ae4e"] = {enabled = true, label = "Mob 13"},
-    ["3e197d30-db67-4750-83d8-e41c3b587751"] = {enabled = true, label = "Mob 14"},
-    ["alalefaf-5f16-42e0-8221-b38511ed6b5o"] = {enabled = true, label = "Mob 15"},
-    ["92a0d7ee-de43-4997-9526-1261842f2ec4"] = {enabled = true, label = "Mob 16"},
-    ["641ef8bd-2304-4687-b6ed-cead11251c86"] = {enabled = true, label = "Mob 17"},
-    ["49ecb1c7-5608-4cfd-8929-671dos4d5foa"] = {enabled = true, label = "Mob 18"},
-    ["f171b021-c84a-42bd-be89-a47a5369afc7"] = {enabled = true, label = "Mob 19"},
-    ["cob33f8b-c2e7-47dc-b8a6-ce6b51b46513d"] = {enabled = true, label = "Mob 20"},
+--------------------------------------------------------------------------------
+-- BASE DE DADOS DOS MAPAS COM SUAS COORDENADAS REAIS
+--------------------------------------------------------------------------------
+local MapasConfig = {
+    {
+        Nome = "Mapa 1",
+        Posicoes = {
+            Vector3.new(515.40, -29.93, 1045.97),
+            Vector3.new(575.89, -29.75, 1021.90),
+            Vector3.new(511.03, -29.93, 965.92),
+            Vector3.new(590.47, -29.93, 887.56),
+            Vector3.new(524.78, -29.93, 813.15),
+            Vector3.new(795.79, 31.88, 903.69),
+        }
+    },
+    {
+        Nome = "Mapa 2",
+        Posicoes = {
+            Vector3.new(545.24, -29.70, 661.96),
+            Vector3.new(619.67, -29.80, 611.83),
+            Vector3.new(535.14, -29.27, 550.62),
+            Vector3.new(622.73, -29.80, 468.60),
+            Vector3.new(529.36, -29.80, 408.69),
+            Vector3.new(855.60, 10.57, 650.08),
+        }
+    },
+    {
+        Nome = "Mapa 3",
+        Posicoes = {
+            Vector3.new(524.62, -30.02, 271.26),
+            Vector3.new(604.96, -30.02, 241.39),
+            Vector3.new(600.57, -30.02, 168.43),
+            Vector3.new(567.97, -29.91, 72.12),
+            Vector3.new(577.64, -29.94, -19.89),
+            Vector3.new(319.70, -9.82, 88.20),
+        }
+    },
+    {
+        Nome = "Mapa 4",
+        Posicoes = {
+            Vector3.new(569.05, -29.99, -231.38),
+            Vector3.new(530.46, -29.78, -285.39),
+            Vector3.new(555.66, -29.30, -351.23),
+            Vector3.new(524.39, -29.15, -483.32),
+            Vector3.new(564.89, -29.84, -564.64),
+            Vector3.new(343.51, -42.04, -403.18),
+        }
+    }
 }
 
---==================================================
--- LOCK DE POSIÇÃO (IGUAL AO ORIGINAL)
---==================================================
+-- Variáveis de controle do Auto-Farm
+local FarmAtivo = false
+local DelayTeleport = 1.0
+local PosicoesSelecionadas = {} -- Guarda a chave "NomeMapa_IndexPos" -> bool
 
-local function clearLock(hrp)
-    for _, v in ipairs(hrp:GetChildren()) do
-        if v.Name:find("TP") then
-            v:Destroy()
+--------------------------------------------------------------------------------
+-- INTERFACE GRÁFICA (GUI)
+--------------------------------------------------------------------------------
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AutoFarmGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = CoreGui
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 420, 0, 360)
+mainFrame.Position = UDim2.new(0.5, -210, 0.35, -180)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = mainFrame
+
+-- Título
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -40, 0, 35)
+title.Position = UDim2.new(0, 10, 0, 0)
+title.Text = "⚙️ Auto-Farm de Teleporte"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 16
+title.Font = Enum.Font.SourceSansBold
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.BackgroundTransparency = 1
+title.Parent = mainFrame
+
+-- Botão Fechar
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 25, 0, 25)
+closeBtn.Position = UDim2.new(1, -30, 0, 5)
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+closeBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+closeBtn.Font = Enum.Font.SourceSansBold
+closeBtn.Parent = mainFrame
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 4)
+closeCorner.Parent = closeBtn
+closeBtn.MouseButton1Click:Connect(function()
+    FarmAtivo = false
+    screenGui:Destroy()
+end)
+
+-- Container dos Botões dos Mapas (Abas)
+local tabContainer = Instance.new("Frame")
+tabContainer.Size = UDim2.new(1, -20, 0, 30)
+tabContainer.Position = UDim2.new(0, 10, 0, 40)
+tabContainer.BackgroundTransparency = 1
+tabContainer.Parent = mainFrame
+
+local tabLayout = Instance.new("UIListLayout")
+tabLayout.FillDirection = Enum.FillDirection.Horizontal
+tabLayout.Padding = UDim.new(0, 5)
+tabLayout.Parent = tabContainer
+
+-- Container das Posições Selecionáveis
+local posContainer = Instance.new("Frame")
+posContainer.Size = UDim2.new(1, -20, 0, 150)
+posContainer.Position = UDim2.new(0, 10, 0, 80)
+posContainer.BackgroundTransparency = 1
+posContainer.Parent = mainFrame
+
+local posGrid = Instance.new("UIGridLayout")
+posGrid.CellSize = UDim2.new(0, 120, 0, 40)
+posGrid.CellPadding = UDim2.new(0, 10, 0, 10)
+posGrid.Parent = posContainer
+
+-- Controles Globais (Delay + Botão Ligar/Desligar)
+local controlContainer = Instance.new("Frame")
+controlContainer.Size = UDim2.new(1, -20, 0, 40)
+controlContainer.Position = UDim2.new(0, 10, 0, 245)
+controlContainer.BackgroundTransparency = 1
+controlContainer.Parent = mainFrame
+
+local delayLabel = Instance.new("TextLabel")
+delayLabel.Size = UDim2.new(0, 80, 1, 0)
+delayLabel.Text = "Delay (s):"
+delayLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+delayLabel.Font = Enum.Font.SourceSansBold
+delayLabel.TextSize = 14
+delayLabel.BackgroundTransparency = 1
+delayLabel.Parent = controlContainer
+
+local delayInput = Instance.new("TextBox")
+delayInput.Size = UDim2.new(0, 60, 1, 0)
+delayInput.Position = UDim2.new(0, 80, 0, 0)
+delayInput.Text = tostring(DelayTeleport)
+delayInput.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+delayInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+delayInput.Font = Enum.Font.SourceSansBold
+delayInput.TextSize = 14
+delayInput.Parent = controlContainer
+local inputCorner = Instance.new("UICorner")
+inputCorner.CornerRadius = UDim.new(0, 6)
+inputCorner.Parent = delayInput
+
+delayInput.FocusLost:Connect(function()
+    local num = tonumber(delayInput.Text)
+    if num and num > 0 then
+        DelayTeleport = num
+    else
+        delayInput.Text = tostring(DelayTeleport)
+    end
+end)
+
+-- Botão de Ligar/Desligar Farm
+local toggleFarmBtn = Instance.new("TextButton")
+toggleFarmBtn.Size = UDim2.new(0, 160, 1, 0)
+toggleFarmBtn.Position = UDim2.new(1, -160, 0, 0)
+toggleFarmBtn.Text = "LIGAR FARM"
+toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(40, 140, 40)
+toggleFarmBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleFarmBtn.Font = Enum.Font.SourceSansBold
+toggleFarmBtn.TextSize = 15
+toggleFarmBtn.Parent = controlContainer
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = UDim.new(0, 6)
+toggleCorner.Parent = toggleFarmBtn
+
+-- Status Label
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, -20, 0, 30)
+statusLabel.Position = UDim2.new(0, 10, 0, 300)
+statusLabel.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+statusLabel.Text = "Status: Parado"
+statusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+statusLabel.TextSize = 13
+statusLabel.Font = Enum.Font.SourceSans
+statusLabel.Parent = mainFrame
+local statusCorner = Instance.new("UICorner")
+statusCorner.CornerRadius = UDim.new(0, 4)
+statusCorner.Parent = statusLabel
+
+--------------------------------------------------------------------------------
+-- LÓGICA DAS ABAS E SELEÇÃO DE POSIÇÕES
+--------------------------------------------------------------------------------
+local mapaAtivoIndex = 1
+local mapButtons = {}
+
+local function renderizarPosicoes()
+    for _, child in pairs(posContainer:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
         end
+    end
+
+    local mapaAtual = MapasConfig[mapaAtivoIndex]
+    if not mapaAtual then return end
+
+    for idx, pos in ipairs(mapaAtual.Posicoes) do
+        local key = mapaAtual.Nome .. "_" .. idx
+        local isSelected = PosicoesSelecionadas[key] or false
+
+        local btn = Instance.new("TextButton")
+        btn.Text = string.format("Pos %d %s", idx, isSelected and "✔" or "")
+        btn.BackgroundColor3 = isSelected and Color3.fromRGB(30, 100, 180) or Color3.fromRGB(45, 45, 50)
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.Font = Enum.Font.SourceSansBold
+        btn.TextSize = 13
+        btn.Parent = posContainer
+
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 6)
+        btnCorner.Parent = btn
+
+        btn.MouseButton1Click:Connect(function()
+            PosicoesSelecionadas[key] = not PosicoesSelecionadas[key]
+            renderizarPosicoes()
+        end)
     end
 end
 
-local function enableLock(cf)
-    local hrp = getHRP(getCharacter())
-    if not hrp then return end
+-- Gerar abas dinamicamente para os mapas
+for idx, mapa in ipairs(MapasConfig) do
+    local mapBtn = Instance.new("TextButton")
+    mapBtn.Size = UDim2.new(0, 85, 1, 0)
+    mapBtn.Text = mapa.Nome
+    mapBtn.BackgroundColor3 = (idx == 1) and Color3.fromRGB(0, 120, 215) or Color3.fromRGB(45, 45, 50)
+    mapBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    mapBtn.Font = Enum.Font.SourceSansBold
+    mapBtn.TextSize = 12
+    mapBtn.Parent = tabContainer
 
-    clearLock(hrp)
+    local mapCorner = Instance.new("UICorner")
+    mapCorner.CornerRadius = UDim.new(0, 6)
+    mapCorner.Parent = mapBtn
 
-    local att = Instance.new("Attachment", hrp)
-    att.Name = "TP_ATTACH"
+    mapButtons[idx] = mapBtn
 
-    local ap = Instance.new("AlignPosition", hrp)
-    ap.Name = "TP_ALIGN_POS"
-    ap.Attachment0 = att
-    ap.Mode = Enum.PositionAlignmentMode.OneAttachment
-    ap.Position = cf.Position
-    ap.MaxForce = math.huge
-    ap.Responsiveness = 200
-    ap.RigidityEnabled = true
-
-    local ao = Instance.new("AlignOrientation", hrp)
-    ao.Name = "TP_ALIGN_ORI"
-    ao.Attachment0 = att
-    ao.Mode = Enum.OrientationAlignmentMode.OneAttachment
-    ao.CFrame = cf * CFrame.Angles(math.rad(-65), 0, 0)
-    ao.MaxTorque = math.huge
-    ao.Responsiveness = 200
-    ao.RigidityEnabled = true
-
-    hrp.CFrame = cf
+    mapBtn.MouseButton1Click:Connect(function()
+        mapaAtivoIndex = idx
+        for i, mBtn in pairs(mapButtons) do
+            mBtn.BackgroundColor3 = (i == mapaAtivoIndex) and Color3.fromRGB(0, 120, 215) or Color3.fromRGB(45, 45, 50)
+        end
+        renderizarPosicoes()
+    end)
 end
 
-local function updateLock(cf)
-    local hrp = getHRP(getCharacter())
-    if not hrp then return end
+renderizarPosicoes()
 
-    local ap = hrp:FindFirstChild("TP_ALIGN_POS")
-    local ao = hrp:FindFirstChild("TP_ALIGN_ORI")
+--------------------------------------------------------------------------------
+-- LÓGICA DO AUTO-FARM
+--------------------------------------------------------------------------------
+local function executarAutoFarm()
+    task.spawn(function()
+        while FarmAtivo do
+            local algumTeleportExecutado = false
 
-    if ap then ap.Position = cf.Position end
-    if ao then ao.CFrame = cf * CFrame.Angles(math.rad(-65), 0, 0) end
-end
+            for _, mapa in ipairs(MapasConfig) do
+                for idx, pos in ipairs(mapa.Posicoes) do
+                    if not FarmAtivo then break end
 
-local function disableLock()
-    local hrp = getHRP(getCharacter())
-    if hrp then clearLock(hrp) end
-end
+                    local key = mapa.Nome .. "_" .. idx
+                    if PosicoesSelecionadas[key] then
+                        algumTeleportExecutado = true
+                        
+                        local char = LocalPlayer.Character
+                        local root = char and char:FindFirstChild("HumanoidRootPart")
 
---==================================================
--- MOB (MODIFICADO PARA ENCONTRAR POR ID)
---==================================================
+                        if root then
+                            -- Zera as velocidades para evitar que o impulso jogue o personagem longe
+                            root.AssemblyLinearVelocity = Vector3.zero
+                            root.AssemblyAngularVelocity = Vector3.zero
+                            
+                            -- Aplica o Teleporte com ajuste de elevação de +3 para não spawnar no chão
+                            root.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
+                            
+                            statusLabel.Text = string.format("Teleportado: %s (Pos %d)", mapa.Nome, idx)
+                            statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+                        else
+                            statusLabel.Text = "Aguardando personagem..."
+                            statusLabel.TextColor3 = Color3.fromRGB(255, 150, 100)
+                        end
 
-local function isValidMob(id)
-    return MobStates[id] and MobStates[id].enabled
-end
-
-local function findNearestMob()
-    local hrp = getHRP(getCharacter())
-    if not hrp then return nil end
-
-    local closest, dist = nil, math.huge
-
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("Model")
-        and isValidMob(obj.Name)
-        and isAlive(obj) then
-
-            local mobHRP = getHRP(obj)
-            if mobHRP then
-                local d = (hrp.Position - mobHRP.Position).Magnitude
-                if d < dist then
-                    dist = d
-                    closest = obj
+                        task.wait(DelayTeleport)
+                    end
                 end
+                if not FarmAtivo then break end
+            end
+
+            if not algumTeleportExecutado then
+                statusLabel.Text = "Nenhuma posição selecionada!"
+                statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                task.wait(1)
             end
         end
-    end
 
-    return closest
-end
-
-local function teleportToMob(mob)
-    local mobHRP = getHRP(mob)
-    if not mobHRP then return end
-
-    local cf = mobHRP.CFrame + TELEPORT_OFFSET
-    enableLock(cf)
-    updateLock(cf)
-end
-
---==================================================
--- LOOP AUTO TP (ORIGINAL)
---==================================================
-
-local function startLoop()
-    if loopRunning then return end
-    loopRunning = true
-
-    task.spawn(function()
-        while enabled do
-            if not currentTarget or not isAlive(currentTarget) then
-                currentTarget = findNearestMob()
-            end
-
-            if currentTarget then
-                teleportToMob(currentTarget)
-            end
-
-            task.wait(TELEPORT_DELAY)
-        end
-        loopRunning = false
+        statusLabel.Text = "Status: Parado"
+        statusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
     end)
 end
 
---==================================================
--- FLY (INDEPENDENTE)
---==================================================
+toggleFarmBtn.MouseButton1Click:Connect(function()
+    FarmAtivo = not FarmAtivo
 
-local FlyEnabled = false
-local FlySpeed = 60
-local FlyBind = Enum.KeyCode.F
-
-local flyBV, flyBG, flyConn
-
-local function startFly()
-    local hrp = getHRP(getCharacter())
-    if not hrp then return end
-
-    flyBV = Instance.new("BodyVelocity", hrp)
-    flyBV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-
-    flyBG = Instance.new("BodyGyro", hrp)
-    flyBG.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-
-    flyConn = RunService.RenderStepped:Connect(function()
-        if not FlyEnabled then return end
-
-        local cam = workspace.CurrentCamera
-        local dir = Vector3.zero
-
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += cam.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= cam.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= cam.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += cam.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.new(0,1,0) end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir -= Vector3.new(0,1,0) end
-
-        flyBV.Velocity = dir.Magnitude > 0 and dir.Unit * FlySpeed or Vector3.zero
-        flyBG.CFrame = cam.CFrame
-    end)
-end
-
-local function stopFly()
-    if flyConn then flyConn:Disconnect() end
-    if flyBV then flyBV:Destroy() end
-    if flyBG then flyBG:Destroy() end
-end
-
---==================================================
--- AUTO SKILL (MANTIDO)
---==================================================
-
-local AutoSkill = true
-local ATTACK_DELAY = 0.15
-local attacking = false
-local usingSkills = false
-
-local function equipTool()
-    local char = getCharacter()
-    if char:FindFirstChildOfClass("Tool") then return end
-
-    local bp = player:FindFirstChildOfClass("Backpack")
-    if bp then
-        local tool = bp:FindFirstChildOfClass("Tool")
-        if tool then tool.Parent = char end
-    end
-end
-
-local function autoAttack()
-    if attacking then return end
-    attacking = true
-
-    task.spawn(function()
-        while AutoSkill do
-            equipTool()
-            local tool = getCharacter():FindFirstChildOfClass("Tool")
-            if tool then pcall(function() tool:Activate() end) end
-            task.wait(ATTACK_DELAY)
-        end
-        attacking = false
-    end)
-end
-
-local function autoSkills()
-    if usingSkills then return end
-    usingSkills = true
-
-    task.spawn(function()
-        while AutoSkill do
-            for _, key in ipairs({
-                Enum.KeyCode.E,
-                Enum.KeyCode.R,
-                Enum.KeyCode.T
-            }) do
-                VirtualInputManager:SendKeyEvent(true, key, false, game)
-                VirtualInputManager:SendKeyEvent(false, key, false, game)
-                task.wait()
-            end
-        end
-        usingSkills = false
-    end)
-end
-
---==================================================
--- SAVE TELEPORT (INDEPENDENTE)
---==================================================
-
-local SavedPos = nil
-local AutoSavedTP = false
-local SavedTPDelay = 60
-local SavedTPBind = Enum.KeyCode.G
-
-local function teleportSavedPos()
-    if not SavedPos then return end
-    disableLock()
-    getHRP(getCharacter()).CFrame = CFrame.new(SavedPos + Vector3.new(0,3,0))
-end
-
-task.spawn(function()
-    while true do
-        if AutoSavedTP and SavedPos then
-            task.wait(SavedTPDelay)
-            teleportSavedPos()
-        else
-            task.wait(0.3)
-        end
+    if FarmAtivo then
+        toggleFarmBtn.Text = "DESLIGAR FARM"
+        toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+        executarAutoFarm()
+    else
+        toggleFarmBtn.Text = "LIGAR FARM"
+        toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(40, 140, 40)
     end
 end)
-
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if input.KeyCode == SavedTPBind then
-        teleportSavedPos()
-    end
-end)
-
---==================================================
--- UI RAYFIELD
---==================================================
-
-TabFarm:CreateToggle({
-    Name = "Auto Teleport",
-    CurrentValue = true,
-    Callback = function(v)
-        enabled = v
-        if v then
-            startLoop()
-        else
-            disableLock()
-            currentTarget = nil
-        end
-    end
-})
-
-for id, data in pairs(MobStates) do
-    TabFarm:CreateToggle({
-        Name = id .. " (" .. data.label .. ")",
-        CurrentValue = data.enabled,
-        Callback = function(v)
-            data.enabled = v
-            currentTarget = nil
-        end
-    })
-end
-
-TabCombat:CreateToggle({
-    Name = "Auto Attack + Skills",
-    CurrentValue = true,
-    Callback = function(v)
-        AutoSkill = v
-        if v then
-            autoAttack()
-            autoSkills()
-        end
-    end
-})
-
---==================================================
--- RESPAWN SAFE
---==================================================
-
-player.CharacterAdded:Connect(function()
-    task.wait(0.4)
-    currentTarget = nil
-    if enabled then startLoop() end
-    if AutoSkill then
-        autoAttack()
-        autoSkills()
-    end
-end)
-
---==================================================
--- SETTINGS (ORGANIZADO)
---==================================================
-
--- Seção Fly
-TabSettings:CreateSection("Fly Settings")
-
-TabSettings:CreateToggle({
-    Name = "Fly",
-    CurrentValue = false,
-    Callback = function(v)
-        FlyEnabled = v
-        if v then startFly() else stopFly() end
-    end
-})
-
-TabSettings:CreateSlider({
-    Name = "Fly Speed",
-    Range = {10, 200},
-    Increment = 5,
-    CurrentValue = FlySpeed,
-    Callback = function(v)
-        FlySpeed = v
-    end
-})
-
-TabSettings:CreateKeybind({
-    Name = "Fly Bind",
-    CurrentKeybind = "F",
-    Callback = function(key)
-        FlyBind = Enum.KeyCode[key]
-    end
-})
-
-TabSettings:CreateSection("Save Teleport Settings")
-
-TabSettings:CreateButton({
-    Name = "Salvar Posição",
-    Callback = function()
-        SavedPos = getHRP(getCharacter()).Position
-        Rayfield:Notify({
-            Title = "Posição Salva",
-            Content = "Posição atual foi salva com sucesso!",
-            Duration = 3,
-            Image = 4483362458
-        })
-    end
-})
-
-TabSettings:CreateButton({
-    Name = "Teleportar para Posição",
-    Callback = teleportSavedPos
-})
-
-TabSettings:CreateToggle({
-    Name = "Auto TP Salvo",
-    CurrentValue = false,
-    Callback = function(v)
-        AutoSavedTP = v
-    end
-})
-
-TabSettings:CreateSlider({
-    Name = "Tempo Auto TP (segundos)",
-    Range = {5, 600},
-    Increment = 5,
-    CurrentValue = SavedTPDelay,
-    Callback = function(v)
-        SavedTPDelay = v
-    end
-})
-
-TabSettings:CreateKeybind({
-    Name = "Bind TP Salvo",
-    CurrentKeybind = "G",
-    Callback = function(key)
-        SavedTPBind = Enum.KeyCode[key]
-    end
-})
-
-TabSettings:CreateSection("Hub")
-
-TabSettings:CreateButton({
-    Name = "Fechar Hub",
-    Callback = function()
-        Rayfield:Destroy()
-    end
-})
-
--- Iniciar Auto TP automaticamente
-if enabled then
-    task.spawn(function()
-        task.wait(1)
-        startLoop()
-    end)
-end
-
--- Iniciar Auto Attack + Skills automaticamente
-if AutoSkill then
-    task.spawn(function()
-        task.wait(1.5)
-        autoAttack()
-        autoSkills()
-    end)
-end
-
-print("✅ Hub carregado com sistema de IDs atualizado")
