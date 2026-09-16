@@ -1,6 +1,11 @@
--- Script Auto-Farm Configurável com Suas Coordenadas para Xeno Executor
+-- Script Auto-Farm com Anti-AFK, Detecção de Morte e Atalho (Ctrl)
+-- Adaptado para: workspace._ENEMIES.Server.<DBZ|AOT|Naruto|Nanatsu>
+-- Mobs são Parts com Attributes: HP, MaxHP, Dead, Name, Id, Map
+
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 
 -- Destruir interface antiga se existir
@@ -9,11 +14,29 @@ if CoreGui:FindFirstChild("AutoFarmGUI") then
 end
 
 --------------------------------------------------------------------------------
--- BASE DE DADOS DOS MAPAS COM SUAS COORDENADAS REAIS
+-- SISTEMA ANTI-AFK
 --------------------------------------------------------------------------------
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new(0, 0))
+end)
+
+--------------------------------------------------------------------------------
+-- BASE DE DADOS DOS MAPAS
+--------------------------------------------------------------------------------
+-- IMPORTANTE: Mapeamento das abas para as pastas reais em _ENEMIES.Server
+-- Ordem definida pelo usuário: DBZ, AOT, Naruto, Nanatsu
+local MapaParaPasta = {
+    [1] = "DBZ",
+    [2] = "AOT",
+    [3] = "Naruto",
+    [4] = "Nanatsu",
+}
+
 local MapasConfig = {
     {
         Nome = "Mapa 1",
+        Pasta = MapaParaPasta[1],  -- DBZ
         Posicoes = {
             Vector3.new(515.40, -29.93, 1045.97),
             Vector3.new(575.89, -29.75, 1021.90),
@@ -25,6 +48,7 @@ local MapasConfig = {
     },
     {
         Nome = "Mapa 2",
+        Pasta = MapaParaPasta[2],  -- AOT
         Posicoes = {
             Vector3.new(545.24, -29.70, 661.96),
             Vector3.new(619.67, -29.80, 611.83),
@@ -36,6 +60,7 @@ local MapasConfig = {
     },
     {
         Nome = "Mapa 3",
+        Pasta = MapaParaPasta[3],  -- Naruto
         Posicoes = {
             Vector3.new(524.62, -30.02, 271.26),
             Vector3.new(604.96, -30.02, 241.39),
@@ -47,6 +72,7 @@ local MapasConfig = {
     },
     {
         Nome = "Mapa 4",
+        Pasta = MapaParaPasta[4],  -- Nanatsu
         Posicoes = {
             Vector3.new(569.05, -29.99, -231.38),
             Vector3.new(530.46, -29.78, -285.39),
@@ -58,10 +84,14 @@ local MapasConfig = {
     }
 }
 
--- Variáveis de controle do Auto-Farm
+-- Variáveis de controle
 local FarmAtivo = false
-local DelayTeleport = 1.0
-local PosicoesSelecionadas = {} -- Guarda a chave "NomeMapa_IndexPos" -> bool
+local DelayTeleport = 0.3          -- Delay entre teleportes (curto, pois espera morte)
+local RaioDeteccao = 50            -- Raio para considerar mob "da posição"
+local TimeoutSpawn = 5             -- Tempo máx. esperando spawnar mob
+local TimeoutMorte = 20            -- Tempo máx. esperando morrer (HP alto)
+local PosicoesSelecionadas = {}
+local TotalKills = 0
 
 --------------------------------------------------------------------------------
 -- INTERFACE GRÁFICA (GUI)
@@ -72,8 +102,8 @@ screenGui.ResetOnSpawn = false
 screenGui.Parent = CoreGui
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 420, 0, 360)
-mainFrame.Position = UDim2.new(0.5, -210, 0.35, -180)
+mainFrame.Size = UDim2.new(0, 420, 0, 420)
+mainFrame.Position = UDim2.new(0.5, -210, 0.30, -210)
 mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 mainFrame.Active = true
 mainFrame.Draggable = true
@@ -87,9 +117,9 @@ corner.Parent = mainFrame
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, -40, 0, 35)
 title.Position = UDim2.new(0, 10, 0, 0)
-title.Text = "⚙️ Auto-Farm de Teleporte"
+title.Text = "⚙️ Auto-Farm [Ctrl p/ Fechar/Abrir]"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.TextSize = 16
+title.TextSize = 14
 title.Font = Enum.Font.SourceSansBold
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.BackgroundTransparency = 1
@@ -108,8 +138,16 @@ local closeCorner = Instance.new("UICorner")
 closeCorner.CornerRadius = UDim.new(0, 4)
 closeCorner.Parent = closeBtn
 closeBtn.MouseButton1Click:Connect(function()
-    FarmAtivo = false
-    screenGui:Destroy()
+    mainFrame.Visible = false
+end)
+
+-- Toggle com CTRL
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed then
+        if input.KeyCode == Enum.KeyCode.LeftControl or input.KeyCode == Enum.KeyCode.RightControl then
+            mainFrame.Visible = not mainFrame.Visible
+        end
+    end
 end)
 
 -- Container dos Botões dos Mapas (Abas)
@@ -167,14 +205,14 @@ inputCorner.Parent = delayInput
 
 delayInput.FocusLost:Connect(function()
     local num = tonumber(delayInput.Text)
-    if num and num > 0 then
+    if num and num >= 0 then
         DelayTeleport = num
     else
         delayInput.Text = tostring(DelayTeleport)
     end
 end)
 
--- Botão de Ligar/Desligar Farm
+-- Botão Ligar/Desligar
 local toggleFarmBtn = Instance.new("TextButton")
 toggleFarmBtn.Size = UDim2.new(0, 160, 1, 0)
 toggleFarmBtn.Position = UDim2.new(1, -160, 0, 0)
@@ -188,15 +226,66 @@ local toggleCorner = Instance.new("UICorner")
 toggleCorner.CornerRadius = UDim.new(0, 6)
 toggleCorner.Parent = toggleFarmBtn
 
+-- Container do Raio de Detecção
+local configContainer = Instance.new("Frame")
+configContainer.Size = UDim2.new(1, -20, 0, 30)
+configContainer.Position = UDim2.new(0, 10, 0, 290)
+configContainer.BackgroundTransparency = 1
+configContainer.Parent = mainFrame
+
+local raioLabel = Instance.new("TextLabel")
+raioLabel.Size = UDim2.new(0, 90, 1, 0)
+raioLabel.Text = "Raio Mob:"
+raioLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+raioLabel.Font = Enum.Font.SourceSansBold
+raioLabel.TextSize = 13
+raioLabel.BackgroundTransparency = 1
+raioLabel.Parent = configContainer
+
+local raioInput = Instance.new("TextBox")
+raioInput.Size = UDim2.new(0, 60, 1, 0)
+raioInput.Position = UDim2.new(0, 90, 0, 0)
+raioInput.Text = tostring(RaioDeteccao)
+raioInput.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+raioInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+raioInput.Font = Enum.Font.SourceSansBold
+raioInput.TextSize = 13
+raioInput.Parent = configContainer
+local raioCorner = Instance.new("UICorner")
+raioCorner.CornerRadius = UDim.new(0, 6)
+raioCorner.Parent = raioInput
+
+raioInput.FocusLost:Connect(function()
+    local n = tonumber(raioInput.Text)
+    if n and n > 5 then
+        RaioDeteccao = n
+    else
+        raioInput.Text = tostring(RaioDeteccao)
+    end
+end)
+
+-- Contador de Kills
+local killsLabel = Instance.new("TextLabel")
+killsLabel.Size = UDim2.new(0, 180, 1, 0)
+killsLabel.Position = UDim2.new(1, -180, 0, 0)
+killsLabel.Text = "Kills: 0"
+killsLabel.TextColor3 = Color3.fromRGB(150, 255, 150)
+killsLabel.Font = Enum.Font.SourceSansBold
+killsLabel.TextSize = 14
+killsLabel.BackgroundTransparency = 1
+killsLabel.TextXAlignment = Enum.TextXAlignment.Right
+killsLabel.Parent = configContainer
+
 -- Status Label
 local statusLabel = Instance.new("TextLabel")
-statusLabel.Size = UDim2.new(1, -20, 0, 30)
-statusLabel.Position = UDim2.new(0, 10, 0, 300)
+statusLabel.Size = UDim2.new(1, -20, 0, 60)
+statusLabel.Position = UDim2.new(0, 10, 0, 330)
 statusLabel.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
-statusLabel.Text = "Status: Parado"
+statusLabel.Text = "Status: Parado | Anti-AFK: Ativo"
 statusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
 statusLabel.TextSize = 13
 statusLabel.Font = Enum.Font.SourceSans
+statusLabel.TextWrapped = true
 statusLabel.Parent = mainFrame
 local statusCorner = Instance.new("UICorner")
 statusCorner.CornerRadius = UDim.new(0, 4)
@@ -241,7 +330,6 @@ local function renderizarPosicoes()
     end
 end
 
--- Gerar abas dinamicamente para os mapas
 for idx, mapa in ipairs(MapasConfig) do
     local mapBtn = Instance.new("TextButton")
     mapBtn.Size = UDim2.new(0, 85, 1, 0)
@@ -270,7 +358,97 @@ end
 renderizarPosicoes()
 
 --------------------------------------------------------------------------------
--- LÓGICA DO AUTO-FARM
+-- DETECÇÃO DE MOBS VIA ATTRIBUTES
+--------------------------------------------------------------------------------
+
+-- Verifica se o mob está vivo
+local function mobEstaVivo(mob)
+    if not mob or not mob.Parent then return false end
+    
+    -- Checa atributo Dead (prioridade máxima)
+    local dead = mob:GetAttribute("Dead")
+    if dead == true then return false end
+    
+    -- Checa HP como fallback
+    local hp = mob:GetAttribute("HP")
+    if hp and hp <= 0 then return false end
+    
+    return true
+end
+
+-- Pega o nome legível do mob
+local function getNomeMob(mob)
+    local nome = mob:GetAttribute("Name")
+    if nome and nome ~= "" then return nome end
+    return mob.Name:sub(1, 8) .. "..."  -- hash truncado
+end
+
+-- Retorna todos os mobs válidos de uma pasta, dentro do raio da posição
+local function getMobsProximos(pastaNome, posicao)
+    local mobs = {}
+    local pastaServer = workspace:FindFirstChild("_ENEMIES")
+    if not pastaServer then return mobs end
+    pastaServer = pastaServer:FindFirstChild("Server")
+    if not pastaServer then return mobs end
+    local pastaMapa = pastaServer:FindFirstChild(pastaNome)
+    if not pastaMapa then return mobs end
+
+    for _, mob in ipairs(pastaMapa:GetChildren()) do
+        if mob:IsA("Part") and mobEstaVivo(mob) then
+            local dist = (mob.Position - posicao).Magnitude
+            if dist <= RaioDeteccao then
+                table.insert(mobs, mob)
+            end
+        end
+    end
+    return mobs
+end
+
+-- Espera aparecer pelo menos 1 mob na área
+local function esperarMobAparecer(pastaNome, posicao, timeout)
+    local tempoInicio = tick()
+    while tick() - tempoInicio < timeout do
+        if not FarmAtivo then return {} end
+        local mobs = getMobsProximos(pastaNome, posicao)
+        if #mobs > 0 then return mobs end
+        task.wait(0.2)
+    end
+    return {}
+end
+
+-- Espera todos os mobs morrerem (via atributo Dead)
+local function esperarMobsMorrerem(mobsIniciais, timeout)
+    if #mobsIniciais == 0 then return 0 end
+
+    local tempoInicio = tick()
+    local matouCount = 0
+    local vivos = {}
+    for _, mob in ipairs(mobsIniciais) do
+        vivos[mob] = true
+    end
+
+    while tick() - tempoInicio < timeout do
+        if not FarmAtivo then return matouCount end
+
+        local todosMortos = true
+        for mob in pairs(vivos) do
+            if not mobEstaVivo(mob) then
+                vivos[mob] = nil
+                matouCount = matouCount + 1
+            else
+                todosMortos = false
+            end
+        end
+
+        if todosMortos then return matouCount end
+        task.wait(0.15)
+    end
+
+    return matouCount
+end
+
+--------------------------------------------------------------------------------
+-- LOOP PRINCIPAL DO AUTO-FARM
 --------------------------------------------------------------------------------
 local function executarAutoFarm()
     task.spawn(function()
@@ -284,42 +462,86 @@ local function executarAutoFarm()
                     local key = mapa.Nome .. "_" .. idx
                     if PosicoesSelecionadas[key] then
                         algumTeleportExecutado = true
-                        
+
+                        -- ===== VERIFICA PERSONAGEM =====
                         local char = LocalPlayer.Character
                         local root = char and char:FindFirstChild("HumanoidRootPart")
+                        local humanoid = char and char:FindFirstChildOfClass("Humanoid")
 
-                        if root then
-                            -- Zera as velocidades para evitar que o impulso jogue o personagem longe
-                            root.AssemblyLinearVelocity = Vector3.zero
-                            root.AssemblyAngularVelocity = Vector3.zero
-                            
-                            -- Aplica o Teleporte com ajuste de elevação de +3 para não spawnar no chão
-                            root.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
-                            
-                            statusLabel.Text = string.format("Teleportado: %s (Pos %d)", mapa.Nome, idx)
-                            statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-                        else
-                            statusLabel.Text = "Aguardando personagem..."
+                        if not root or not humanoid or humanoid.Health <= 0 then
+                            statusLabel.Text = "⏳ Aguardando respawn..."
                             statusLabel.TextColor3 = Color3.fromRGB(255, 150, 100)
+                            while FarmAtivo do
+                                task.wait(0.5)
+                                char = LocalPlayer.Character
+                                root = char and char:FindFirstChild("HumanoidRootPart")
+                                humanoid = char and char:FindFirstChildOfClass("Humanoid")
+                                if root and humanoid and humanoid.Health > 0 then break end
+                            end
+                            if not FarmAtivo then break end
                         end
 
-                        task.wait(DelayTeleport)
+                        -- ===== TELEPORTE =====
+                        root.AssemblyLinearVelocity = Vector3.zero
+                        root.AssemblyAngularVelocity = Vector3.zero
+                        root.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
+
+                        statusLabel.Text = string.format("📍 %s (Pos %d) - Buscando mobs...", mapa.Nome, idx)
+                        statusLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
+
+                        -- ===== ESPERA SPAWN =====
+                        local mobs = esperarMobAparecer(mapa.Pasta, pos, TimeoutSpawn)
+
+                        if #mobs > 0 then
+                            -- Mostra nomes dos mobs detectados (até 3)
+                            local nomes = {}
+                            for i = 1, math.min(3, #mobs) do
+                                table.insert(nomes, getNomeMob(mobs[i]))
+                            end
+                            local nomesStr = table.concat(nomes, ", ")
+                            if #mobs > 3 then nomesStr = nomesStr .. " +" .. (#mobs - 3) end
+
+                            statusLabel.Text = string.format("⚔️ %s (Pos %d) - %d mob(s): %s",
+                                mapa.Nome, idx, #mobs, nomesStr)
+                            statusLabel.TextColor3 = Color3.fromRGB(255, 220, 100)
+
+                            -- ===== ESPERA MORTE =====
+                            local kills = esperarMobsMorrerem(mobs, TimeoutMorte)
+                            TotalKills = TotalKills + kills
+                            killsLabel.Text = "Kills: " .. TotalKills
+
+                            statusLabel.Text = string.format("✅ %s (Pos %d) - +%d kills! Próxima...",
+                                mapa.Nome, idx, kills)
+                            statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+                        else
+                            statusLabel.Text = string.format("⚠️ %s (Pos %d) - Nenhum mob",
+                                mapa.Nome, idx)
+                            statusLabel.TextColor3 = Color3.fromRGB(255, 180, 80)
+                        end
+
+                        -- Delay entre posições (curto, pois já esperou morte)
+                        if DelayTeleport > 0 then
+                            task.wait(DelayTeleport * (0.85 + math.random() * 0.3))
+                        end
                     end
                 end
                 if not FarmAtivo then break end
             end
 
             if not algumTeleportExecutado then
-                statusLabel.Text = "Nenhuma posição selecionada!"
+                statusLabel.Text = "⚠️ Nenhuma posição selecionada!"
                 statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
                 task.wait(1)
             end
         end
 
-        statusLabel.Text = "Status: Parado"
+        statusLabel.Text = "Status: Parado | Anti-AFK: Ativo"
         statusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
     end)
 end
+
+-- Controle da thread de farm (evita múltiplas threads simultâneas)
+local farmThread = nil
 
 toggleFarmBtn.MouseButton1Click:Connect(function()
     FarmAtivo = not FarmAtivo
@@ -327,9 +549,13 @@ toggleFarmBtn.MouseButton1Click:Connect(function()
     if FarmAtivo then
         toggleFarmBtn.Text = "DESLIGAR FARM"
         toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
-        executarAutoFarm()
+        farmThread = task.spawn(executarAutoFarm)
     else
         toggleFarmBtn.Text = "LIGAR FARM"
         toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(40, 140, 40)
+        if farmThread then
+            task.cancel(farmThread)
+            farmThread = nil
+        end
     end
 end)
